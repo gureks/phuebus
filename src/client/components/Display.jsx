@@ -33,6 +33,16 @@ function Display() {
   const [aspectMode, setAspectMode] = useState('fit');
   const [maxGain, setMaxGain] = useState(3.0);
   const [lumaSmoothing, setLumaSmoothing] = useState(0.95);
+
+  // Shader Pack States (Phase 1.4)
+  const [activeShader, setActiveShader] = useState('passthrough'); // 'passthrough' | 'toon' | 'neon'
+  const [trailsEnabled, setTrailsEnabled] = useState(false);
+  const [edgeSensitivity, setEdgeSensitivity] = useState(0.15);
+  const [colorSteps, setColorSteps] = useState(5.0);
+  const [decay, setDecay] = useState(0.9);
+  const [dispersion, setDispersion] = useState(0.002);
+  const [glowRadius, setGlowRadius] = useState(0.005);
+  const [hue, setHue] = useState(0.0); // 0-360 degrees
   
   // UI controls
   const [sidebarsOpen, setSidebarsOpen] = useState(true);
@@ -130,6 +140,17 @@ function Display() {
         dprCap: dprCap,
         lumaSmoothing: lumaSmoothing,
         maxGain: maxGain,
+        
+        // Shader pack init options
+        activeShader: activeShader,
+        trailsEnabled: trailsEnabled,
+        edgeSensitivity: edgeSensitivity,
+        colorSteps: colorSteps,
+        decay: decay,
+        dispersion: dispersion,
+        glowRadius: glowRadius,
+        hue: hue,
+
         onFpsUpdate: (fpsVal) => {
           setFps(fpsVal);
         }
@@ -154,22 +175,48 @@ function Display() {
 
   // Hook 3: Propagate lightweight parameters dynamically to active engine
   useEffect(() => {
-    if (engineRef.current) {
-      engineRef.current.setAspectMode(aspectMode);
-    }
+    if (engineRef.current) engineRef.current.setAspectMode(aspectMode);
   }, [aspectMode]);
 
   useEffect(() => {
-    if (engineRef.current) {
-      engineRef.current.setMaxGain(maxGain);
-    }
+    if (engineRef.current) engineRef.current.setMaxGain(maxGain);
   }, [maxGain]);
 
   useEffect(() => {
-    if (engineRef.current) {
-      engineRef.current.setLumaSmoothing(lumaSmoothing);
-    }
+    if (engineRef.current) engineRef.current.setLumaSmoothing(lumaSmoothing);
   }, [lumaSmoothing]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setActiveShader(activeShader);
+  }, [activeShader]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setTrailsEnabled(trailsEnabled);
+  }, [trailsEnabled]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setEdgeSensitivity(edgeSensitivity);
+  }, [edgeSensitivity]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setColorSteps(colorSteps);
+  }, [colorSteps]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setDecay(decay);
+  }, [decay]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setDispersion(dispersion);
+  }, [dispersion]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setGlowRadius(glowRadius);
+  }, [glowRadius]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setHue(hue);
+  }, [hue]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -180,6 +227,82 @@ function Display() {
       }
     }
   }, [engineMode, cameraStatus]);
+
+  // Hook 4: CPU dancing skeleton joint simulator (runs when Neon mode is active, pending MediaPipe tracker)
+  useEffect(() => {
+    let animId = null;
+
+    const simulateLandmarks = (timestamp) => {
+      if (!engineRef.current) {
+        animId = requestAnimationFrame(simulateLandmarks);
+        return;
+      }
+
+      const time = timestamp * 0.001;
+      const landmarks = Array.from({ length: 33 }, () => ({ x: -1, y: -1 }));
+
+      // Center spine/hips area swaying side to side
+      const hipX = 0.5 + Math.sin(time * 1.8) * 0.06;
+      const hipY = 0.58 + Math.cos(time * 2.2) * 0.03;
+
+      // Hips (23: L Hip, 24: R Hip)
+      landmarks[23] = { x: hipX - 0.06, y: hipY };
+      landmarks[24] = { x: hipX + 0.06, y: hipY };
+
+      // Shoulders (11: L Shoulder, 12: R Shoulder)
+      const shoulderX = 0.5 - Math.sin(time * 1.8) * 0.03;
+      const shoulderY = 0.38 + Math.sin(time * 2.6) * 0.015;
+      landmarks[11] = { x: shoulderX - 0.1, y: shoulderY };
+      landmarks[12] = { x: shoulderX + 0.1, y: shoulderY };
+
+      // Elbows (13: L Elbow, 14: R Elbow)
+      landmarks[13] = { x: shoulderX - 0.18, y: shoulderY + 0.06 + Math.sin(time * 3.2) * 0.04 };
+      landmarks[14] = { x: shoulderX + 0.18, y: shoulderY + 0.06 + Math.cos(time * 3.2) * 0.04 };
+
+      // Wrists (15: L Wrist, 16: R Wrist) - waving circular paths
+      landmarks[15] = { 
+        x: landmarks[13].x + Math.sin(time * 4.5) * 0.06, 
+        y: landmarks[13].y + Math.cos(time * 4.5) * 0.06 
+      };
+      landmarks[16] = { 
+        x: landmarks[14].x + Math.cos(time * 4.5) * 0.06, 
+        y: landmarks[14].y + Math.sin(time * 4.5) * 0.06 
+      };
+
+      // Knees (25: L Knee, 26: R Knee) - stepping motion
+      landmarks[25] = { x: landmarks[23].x - 0.02, y: hipY + 0.14 + Math.sin(time * 2.2) * 0.03 };
+      landmarks[26] = { x: landmarks[24].x + 0.02, y: hipY + 0.14 - Math.sin(time * 2.2) * 0.03 };
+
+      // Ankles (27: L Ankle, 28: R Ankle)
+      landmarks[27] = { x: landmarks[25].x - 0.01 + Math.sin(time * 2.2) * 0.01, y: hipY + 0.28 };
+      landmarks[28] = { x: landmarks[26].x + 0.01 - Math.sin(time * 2.2) * 0.01, y: hipY + 0.28 };
+
+      // Face/Nose marker (0)
+      landmarks[0] = { x: shoulderX, y: shoulderY - 0.09 };
+
+      engineRef.current.setLandmarks(landmarks);
+
+      // Simulate live audio beats in the absence of audio tracker
+      const bassVal = 0.3 + Math.max(0, Math.sin(time * 4.5)) * 0.7;
+      const midVal = 0.2 + Math.max(0, Math.sin(time * 7.0)) * 0.5;
+      engineRef.current.setAudioData(bassVal, midVal, 0.0);
+
+      animId = requestAnimationFrame(simulateLandmarks);
+    };
+
+    if (activeShader === 'neon') {
+      animId = requestAnimationFrame(simulateLandmarks);
+    } else {
+      if (engineRef.current) {
+        engineRef.current.setLandmarks(null);
+        engineRef.current.setAudioData(0.0, 0.0, 0.0);
+      }
+    }
+
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+    };
+  }, [activeShader]);
 
   // Handle local camera selection via HeroUI Select
   const handleCameraChangeDirect = async (deviceId) => {
@@ -412,6 +535,59 @@ function Display() {
             </div>
           </Card>
 
+          {/* Active Projection Shader presets Card */}
+          <Card className="bg-zinc-950/80 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-zinc-300 font-bold text-xs uppercase tracking-wider">
+              <Layers className="size-4 text-zinc-400" />
+              Visual Projection
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <Button
+                size="sm"
+                variant={activeShader === 'passthrough' ? 'solid' : 'flat'}
+                color={activeShader === 'passthrough' ? 'primary' : 'default'}
+                className="w-full justify-start rounded-xl font-bold"
+                onPress={() => setActiveShader('passthrough')}
+              >
+                📹 Raw Feed (Passthrough)
+              </Button>
+              <Button
+                size="sm"
+                variant={activeShader === 'toon' ? 'solid' : 'flat'}
+                color={activeShader === 'toon' ? 'primary' : 'default'}
+                className="w-full justify-start rounded-xl font-bold"
+                onPress={() => setActiveShader('toon')}
+              >
+                🎨 Toon Render (Cel-Shaded)
+              </Button>
+              <Button
+                size="sm"
+                variant={activeShader === 'neon' ? 'solid' : 'flat'}
+                color={activeShader === 'neon' ? 'primary' : 'default'}
+                className="w-full justify-start rounded-xl font-bold"
+                onPress={() => setActiveShader('neon')}
+              >
+                ⚡ Neon Aura (Skeletal Glow)
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between py-1 border-t border-zinc-800 mt-2">
+              <span className="text-[11px] text-zinc-300 font-medium">Feedback Trails</span>
+              <Switch 
+                isSelected={trailsEnabled} 
+                onChange={setTrailsEnabled}
+                size="sm"
+              >
+                <Switch.Content>
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                </Switch.Content>
+              </Switch>
+            </div>
+          </Card>
+
           {/* Aspect Ratio & Auto-Gain Tuning Card */}
           <Card className="bg-zinc-950/80 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-4">
             <div className="flex items-center gap-2 text-zinc-300 font-bold text-xs uppercase tracking-wider">
@@ -477,6 +653,122 @@ function Display() {
                 </Slider.Track>
               </Slider>
             </div>
+
+            {/* Conditional Toon shader settings */}
+            {activeShader === 'toon' && (
+              <div className="space-y-3 border-t border-zinc-800 pt-3">
+                <Slider
+                  minValue={0.02}
+                  maxValue={0.4}
+                  step={0.01}
+                  value={edgeSensitivity}
+                  onChange={setEdgeSensitivity}
+                  className="w-full"
+                >
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Edge Sensitivity</Label>
+                  <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                  <Slider.Track className="bg-zinc-800">
+                    <Slider.Fill className="bg-primary" />
+                    <Slider.Thumb className="bg-primary" />
+                  </Slider.Track>
+                </Slider>
+
+                <Slider
+                  minValue={2.0}
+                  maxValue={16.0}
+                  step={1.0}
+                  value={colorSteps}
+                  onChange={setColorSteps}
+                  className="w-full"
+                >
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Cel Levels</Label>
+                  <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                  <Slider.Track className="bg-zinc-800">
+                    <Slider.Fill className="bg-primary" />
+                    <Slider.Thumb className="bg-primary" />
+                  </Slider.Track>
+                </Slider>
+              </div>
+            )}
+
+            {/* Conditional Neon shader settings */}
+            {activeShader === 'neon' && (
+              <div className="space-y-3 border-t border-zinc-800 pt-3">
+                <Slider
+                  minValue={0.001}
+                  maxValue={0.015}
+                  step={0.0005}
+                  value={glowRadius}
+                  onChange={setGlowRadius}
+                  className="w-full"
+                >
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Neon Glow Radius</Label>
+                  <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                  <Slider.Track className="bg-zinc-800">
+                    <Slider.Fill className="bg-primary" />
+                    <Slider.Thumb className="bg-primary" />
+                  </Slider.Track>
+                </Slider>
+              </div>
+            )}
+
+            {/* Aura/Edge Hue Color settings */}
+            {(activeShader === 'toon' || activeShader === 'neon') && (
+              <div className="space-y-1 border-t border-zinc-800 pt-3">
+                <Slider
+                  minValue={0}
+                  maxValue={360}
+                  step={5}
+                  value={hue}
+                  onChange={setHue}
+                  className="w-full"
+                >
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Neon Hue Shift</Label>
+                  <Slider.Output className="text-xs text-zinc-400 font-mono">{hue}°</Slider.Output>
+                  <Slider.Track className="bg-zinc-800">
+                    <Slider.Fill className="bg-primary" />
+                    <Slider.Thumb className="bg-primary" />
+                  </Slider.Track>
+                </Slider>
+              </div>
+            )}
+
+            {/* Trails tuning */}
+            {trailsEnabled && (
+              <div className="space-y-3 border-t border-zinc-800 pt-3">
+                <Slider
+                  minValue={0.5}
+                  maxValue={0.99}
+                  step={0.01}
+                  value={decay}
+                  onChange={setDecay}
+                  className="w-full"
+                >
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Trails Persistence</Label>
+                  <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                  <Slider.Track className="bg-zinc-800">
+                    <Slider.Fill className="bg-primary" />
+                    <Slider.Thumb className="bg-primary" />
+                  </Slider.Track>
+                </Slider>
+
+                <Slider
+                  minValue={0.0}
+                  maxValue={0.006}
+                  step={0.0005}
+                  value={dispersion}
+                  onChange={setDispersion}
+                  className="w-full"
+                >
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Smoke Dispersion</Label>
+                  <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                  <Slider.Track className="bg-zinc-800">
+                    <Slider.Fill className="bg-primary" />
+                    <Slider.Thumb className="bg-primary" />
+                  </Slider.Track>
+                </Slider>
+              </div>
+            )}
           </Card>
 
           {/* Quick Page Exit */}

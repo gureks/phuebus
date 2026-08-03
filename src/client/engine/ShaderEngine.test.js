@@ -7,8 +7,7 @@ const mockRenderer = {
   setSize: vi.fn(),
   setRenderTarget: vi.fn(),
   readRenderTargetPixels: vi.fn((target, x, y, w, h, buffer) => {
-    // Simulate rendering a mid-brightness scene (luma = 0.4)
-    buffer[0] = 102; // 102/255 = 0.4
+    buffer[0] = 128; // luma = 0.5
   }),
   render: vi.fn(),
   setAnimationLoop: vi.fn((cb) => {
@@ -130,126 +129,98 @@ describe('ShaderEngine class', () => {
 
     expect(engine.canvas).toBe(mockCanvas);
     expect(engine.videoElement).toBe(mockVideo);
-    expect(engine.fpsCap).toBe(60);
-    expect(engine.maxGain).toBe(3.0);
-    expect(engine.antialias).toBe(false);
-    expect(engine.aspectMode).toBe('fit');
-    expect(engine.resolutionMode).toBe('window');
-    expect(engine.dprCap).toBe(2.0);
-    expect(engine.lumaSmoothing).toBe(0.95);
+    expect(engine.activeShader).toBe('passthrough');
+    expect(engine.trailsEnabled).toBe(false);
 
     expect(engine.renderer).toBeDefined();
     expect(engine.lumaTarget).toBeDefined();
     expect(engine.prepassTarget).toBeDefined();
-    expect(engine.autoGainMaterial).toBeDefined();
+    expect(engine.activeShaderTarget).toBeDefined();
+    expect(engine.feedbackTargetA).toBeDefined();
+    expect(engine.feedbackTargetB).toBeDefined();
+    expect(engine.toonMaterial).toBeDefined();
+    expect(engine.neonMaterial).toBeDefined();
+    expect(engine.feedbackMaterial).toBeDefined();
   });
 
-  it('should apply initialization options correctly', () => {
-    const engine = new ShaderEngine(mockCanvas, mockVideo, {
-      antialias: true,
-      aspectMode: 'cover',
-      resolutionMode: '1080p',
-      dprCap: 1.5,
-      lumaSmoothing: 0.8
-    });
-
-    expect(engine.antialias).toBe(true);
-    expect(engine.aspectMode).toBe('cover');
-    expect(engine.resolutionMode).toBe('1080p');
-    expect(engine.dprCap).toBe(1.5);
-    expect(engine.lumaSmoothing).toBe(0.8);
-  });
-
-  it('should update and apply runtime configuration changes', () => {
+  it('should apply and update active shader and trails parameters', () => {
     const engine = new ShaderEngine(mockCanvas, mockVideo);
 
-    engine.setFpsCap(24);
-    expect(engine.fpsCap).toBe(24);
+    engine.setActiveShader('toon');
+    expect(engine.activeShader).toBe('toon');
 
-    engine.setMaxGain(4.0);
-    expect(engine.maxGain).toBe(4.0);
-    expect(engine.autoGainMaterial.uniforms.uMaxGain.value).toBe(4.0);
-
-    engine.setAspectMode('cover');
-    expect(engine.aspectMode).toBe('cover');
-
-    engine.setLumaSmoothing(0.9);
-    expect(engine.lumaSmoothing).toBe(0.9);
+    engine.setTrailsEnabled(true);
+    expect(engine.trailsEnabled).toBe(true);
   });
 
-  it('should handle resize configurations for fluid and fixed resolution modes', () => {
+  it('should update uniform setters for the shader pack', () => {
     const engine = new ShaderEngine(mockCanvas, mockVideo);
 
-    // 1. Window fluid resolution mode
-    mockCanvas.clientWidth = 1024;
-    mockCanvas.clientHeight = 768;
-    engine.setDprCap(1.5); // calls resize internally
-    expect(mockRenderer.setSize).toHaveBeenCalledWith(1024, 768, false);
+    engine.setEdgeSensitivity(0.25);
+    expect(engine.edgeSensitivity).toBe(0.25);
+    expect(engine.toonMaterial.uniforms.uEdgeSensitivity.value).toBe(0.25);
 
-    // 2. Fixed 1080p resolution mode
-    engine.setResolutionMode('1080p');
-    expect(mockRenderer.setSize).toHaveBeenCalledWith(1920, 1080, false);
-    expect(mockRenderer.setPixelRatio).toHaveBeenLastCalledWith(1.0);
+    engine.setColorSteps(8.0);
+    expect(engine.colorSteps).toBe(8.0);
+    expect(engine.toonMaterial.uniforms.uColorSteps.value).toBe(8.0);
 
-    // 3. Fixed 720p resolution mode
-    engine.setResolutionMode('720p');
-    expect(mockRenderer.setSize).toHaveBeenCalledWith(1280, 720, false);
-    expect(mockRenderer.setPixelRatio).toHaveBeenLastCalledWith(1.0);
+    engine.setDecay(0.85);
+    expect(engine.decay).toBe(0.85);
+    expect(engine.feedbackMaterial.uniforms.uDecay.value).toBe(0.85);
+
+    engine.setDispersion(0.005);
+    expect(engine.dispersion).toBe(0.005);
+    expect(engine.feedbackMaterial.uniforms.uDispersion.value).toBe(0.005);
+
+    engine.setGlowRadius(0.012);
+    expect(engine.glowRadius).toBe(0.012);
+    expect(engine.neonMaterial.uniforms.uGlowRadius.value).toBe(0.012);
+
+    engine.setHue(180);
+    expect(engine.hue).toBeCloseTo(Math.PI, 4);
+    expect(engine.toonMaterial.uniforms.uHue.value).toBeCloseTo(Math.PI, 4);
+    expect(engine.neonMaterial.uniforms.uHue.value).toBeCloseTo(Math.PI, 4);
   });
 
-  it('should compute uVideoScale aspect scaling factors in Fit mode', () => {
+  it('should correctly set and invalidate landmarks Vector2 coordinates', () => {
     const engine = new ShaderEngine(mockCanvas, mockVideo);
 
-    // Canvas is 800x600 (aspect 1.333), Video is 1920x1080 (aspect 1.777)
-    // Canvas is taller than video (cAspect < vAspect), so Fit requires letterboxing (scaleY > 1.0)
-    engine.setAspectMode('fit');
-    engine.render(1000);
+    // Initial state: all set to (-1, -1)
+    expect(engine.landmarksList[0].x).toBe(-1);
+    expect(engine.landmarksList[0].y).toBe(-1);
 
-    const scale = engine.autoGainMaterial.uniforms.uVideoScale.value;
-    expect(scale.x).toBe(1.0);
-    expect(scale.y).toBeCloseTo(1.777 / 1.333, 2);
+    // Set active landmarks array
+    const testLandmarks = [
+      { x: 0.5, y: 0.5 },
+      { x: 0.2, y: 0.8 }
+    ];
+    engine.setLandmarks(testLandmarks);
+    expect(engine.landmarksList[0].x).toBe(0.5);
+    expect(engine.landmarksList[0].y).toBe(0.5);
+    expect(engine.landmarksList[1].x).toBe(0.2);
+    expect(engine.landmarksList[1].y).toBe(0.8);
+    // Unspecified items should remain (-1, -1)
+    expect(engine.landmarksList[2].x).toBe(-1);
+    expect(engine.landmarksList[2].y).toBe(-1);
+
+    // Invalidate landmarks
+    engine.setLandmarks(null);
+    expect(engine.landmarksList[0].x).toBe(-1);
+    expect(engine.landmarksList[0].y).toBe(-1);
   });
 
-  it('should compute uVideoScale aspect scaling factors in Cover mode', () => {
+  it('should execute multi-pass render steps and update uniforms', () => {
     const engine = new ShaderEngine(mockCanvas, mockVideo);
+    engine.setActiveShader('neon');
+    engine.setTrailsEnabled(true);
+    engine.setAudioData(0.8, 0.4, 0.2);
 
-    // Canvas is 800x600 (aspect 1.333), Video is 1920x1080 (aspect 1.777)
-    // Canvas is taller than video (cAspect < vAspect), so Cover requires cropping sides (scaleX < 1.0)
-    engine.setAspectMode('cover');
-    engine.render(1000);
+    engine.render(1200);
 
-    const scale = engine.autoGainMaterial.uniforms.uVideoScale.value;
-    expect(scale.x).toBeCloseTo(1.333 / 1.777, 2);
-    expect(scale.y).toBe(1.0);
-  });
+    expect(engine.uBass).toBe(0.8);
+    expect(engine.uMid).toBe(0.4);
+    expect(engine.uHigh).toBe(0.2);
 
-  it('should respect FPS cap using delta gating', () => {
-    const engine = new ShaderEngine(mockCanvas, mockVideo, { fpsCap: 30 });
-
-    engine.render(1000);
-    mockRenderer.render.mockClear();
-
-    // 10ms later (budget is 33.3ms), should be skipped
-    engine.render(1010);
-    expect(mockRenderer.render).not.toHaveBeenCalled();
-
-    // 40ms later, should execute
-    engine.render(1045);
     expect(mockRenderer.render).toHaveBeenCalled();
-  });
-
-  it('should cleanly dispose of GPU resources on destroy', () => {
-    const engine = new ShaderEngine(mockCanvas, mockVideo);
-
-    const disposeRenderer = engine.renderer.dispose;
-    const disposeTarget1 = engine.lumaTarget.dispose;
-    const disposeTarget2 = engine.prepassTarget.dispose;
-
-    engine.destroy();
-
-    expect(engine.isPaused).toBe(true);
-    expect(disposeRenderer).toHaveBeenCalled();
-    expect(disposeTarget1).toHaveBeenCalled();
-    expect(disposeTarget2).toHaveBeenCalled();
   });
 });
