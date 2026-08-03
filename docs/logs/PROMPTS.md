@@ -271,5 +271,35 @@
 ### Notes
 - Discovered and fixed a floating-point modulo rounding bug in `ShaderEngine.js`'s FPS gating loop: JavaScript's double-precision remainder operation of `1000 % 33.333333333333336` resulted in a non-zero value matching `33.333333333333336` (instead of `0`). Solved by adding a safety epsilon tolerance check before subtracting the excess duration.
 
+---
+
+## P-008 — Render Options Tuning, UI Side Panels & Aspect Ratio Correction
+
+- **Date:** 2026-08-03 22:26 (IST)
+- **Phase:** Phase 1
+- **Type:** Feature + Refactor
+
+### Prompt (verbatim)
+> Debug the following before proceeding to next steps -
+> 
+> - Canvas resolution: match display resolution or render at fixed 1920×1080 OR user configurable.
+> - Anti-aliasing on WebGLRenderer: needs to be user-toggleable
+> - DPR / DPI capping: default at Math.min(devicePixelRatio, 2) and make it user-configurable
+> - Create left and right side drawers for user configured variables and tuning. They layout should look like the screens attached(ignore the screenshot context, just look at the layout and structure). Use components from HeroUI(MCP available)
+> - Mobile camera orientation detection - if the mobile camera is rotated between potrait and landscape, how is that handled? Currently the portrait mode compresses to landscape display, it should be shown as it is. or be a part of canvas resolution configuration panel. 
+> - In remote mode, add an option for full screen camera view right next to switch camera button
+> 
+> Ask clarifying questions IF ANY before proceeding.
+
+### Decisions Triggered
+- [To be filled in]
+
+### Outputs Produced
+- [To be filled in]
+
+### Notes
+- [To be filled in]
+
+
 
 

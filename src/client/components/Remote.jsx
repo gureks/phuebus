@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import VideoIngestion from '../engine/VideoIngestion';
 import { Button, Card, Input } from '@heroui/react';
-import { Smartphone, FlipHorizontal, Camera, VideoOff, LogOut, Check } from 'lucide-react';
+import { Smartphone, FlipHorizontal, Camera, VideoOff, LogOut, Check, Maximize2, Minimize2 } from 'lucide-react';
 
 function Remote() {
   const [searchParams] = useSearchParams();
@@ -18,6 +18,7 @@ function Remote() {
   
   const [peerStatus, setPeerStatus] = useState('disconnected');
   const [streamActive, setStreamActive] = useState(false);
+  const [isFullscreenPreview, setIsFullscreenPreview] = useState(false);
 
   const [cameras, setCameras] = useState([]);
   const [selectedCamera, setSelectedCamera] = useState('');
@@ -237,8 +238,12 @@ function Remote() {
             </div>
           </div>
 
-          {/* Camera preview window */}
-          <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden m-4 rounded-3xl border border-border">
+          {/* Camera preview window (supports fullscreen preview toggle) */}
+          <div className={`relative flex items-center justify-center bg-black overflow-hidden ${
+            isFullscreenPreview 
+              ? 'fixed inset-0 z-40 w-screen h-screen rounded-none border-none m-0' 
+              : 'flex-1 m-4 rounded-3xl border border-border'
+          }`}>
             <video
               ref={videoPreviewRef}
               muted
@@ -247,21 +252,29 @@ function Remote() {
             />
 
             {!streamActive && (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <div className="flex flex-col items-center gap-2 text-zinc-500">
                 <VideoOff className="size-8" />
                 <span className="text-xs tracking-wider uppercase font-semibold">No Camera Stream</span>
               </div>
             )}
 
-            {/* Quick Actions (camera flip) */}
+            {/* Quick Actions (camera flip + fullscreen toggle) */}
             {streamActive && (
-              <div className="absolute bottom-4 right-4 flex gap-2">
+              <div className="absolute bottom-4 right-4 flex gap-2 z-50">
                 <Button
                   size="sm"
                   onPress={flipCamera}
-                  className="bg-black/60 hover:bg-black/80 text-zinc-200 backdrop-blur-md rounded-xl p-2 min-w-0"
+                  className="bg-black/60 hover:bg-zinc-800/80 text-zinc-200 backdrop-blur-md rounded-xl p-2 min-w-0"
                 >
                   <FlipHorizontal className="size-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  onPress={() => setIsFullscreenPreview(!isFullscreenPreview)}
+                  className="bg-black/60 hover:bg-zinc-800/80 text-zinc-200 backdrop-blur-md rounded-xl p-2 min-w-0"
+                  aria-label="Toggle Fullscreen Preview"
+                >
+                  {isFullscreenPreview ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
                 </Button>
               </div>
             )}

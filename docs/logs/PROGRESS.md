@@ -47,7 +47,7 @@
 |---|---|---|---|---|
 | P1-1 | Server scaffold (Express + Socket.IO + PeerServer) | ✅ Done | `d470590` | Express HTML routes extension, websocket-only transports, embedded PeerJS |
 | P1-2 | Video ingestion (UVC + WebRTC) | ✅ Done | `cb57ac5` | PeerJS WebRTC stream + local UVC switcher + React preview |
-| P1-3 | Three.js shader engine foundation | ✅ Done | `ecc8e85` | Three.js WebGL2 pipeline with 1x1 RenderTarget luma downsampling & adaptive auto-gain pre-pass |
+| P1-3 | Three.js shader engine foundation | ✅ Done | `17f39df` | Three.js WebGL2 pipeline with 1x1 RenderTarget luma downsampling & adaptive auto-gain pre-pass |
 | P1-4 | Shader pack (Toon + Trails + Neon) | ⬜ Pending | — | Depends on P1-3 |
 | P1-5 | Audio reactivity engine | ⬜ Pending | — | Depends on P1-3 |
 | P1-6 | Pose tracker (MediaPipe) | ⬜ Pending | — | Depends on P1-4 |
@@ -136,3 +136,8 @@
 | 2026-08-03 | Planning phase completed; SPEC, PLAN, AGENTS documents created | Agent (P-001) |
 | 2026-08-03 | Repo structured; DECISIONS, PROMPTS, PROGRESS logs created and populated; FRAMEWORKS research doc added; AGENTS.md enhanced | Agent (P-002) |
 | 2026-08-03 | PLAN files moved to docs/plan/; all cross-references updated; git remote origin set; Phase 1 scaffolding begins | Agent (P-003) |
+| 2026-08-03 | Phase 1 scaffold: server.js Express API, room codes, embedded PeerServer, Socket.IO routes, app.css styles, and landing/remote pages | Agent (P-004) |
+| 2026-08-03 | React/Vite migration with HeroUI v3 & Tailwind v4 dependencies, VideoIngestion class, WebRTC camera routing & page previews | Agent (P-005) |
+| 2026-08-03 | Debugged iOS Local Network websocket connectivity, enabled HTTPS SSL certs, enforced default HeroUI styling, integrated Vitest + coverage | Agent (P-006) |
+| 2026-08-03 | Implemented Three.js ShaderEngine, AutoGainPrepass GLSL (luma downsampling, adaptive gain), fullscreen passthrough vert, and unit tests | Agent (P-007) |
+| 2026-08-03 | Added left/right collapsible tuning panels (HeroUI select/slider/switch), WebGL antialias/resolution/DPR settings, orientation auto-correction, and remote fullscreen view | Agent (P-008) |

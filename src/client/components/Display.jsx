@@ -3,24 +3,41 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import VideoIngestion from '../engine/VideoIngestion';
 import { ShaderEngine } from '../engine/ShaderEngine';
-import { Card, Button, Spinner } from '@heroui/react';
-import { Monitor, Camera, Wifi, Settings, LogOut, VideoOff } from 'lucide-react';
+import { Card, Button, Spinner, Switch, Slider, Select, Label, ListBox } from '@heroui/react';
+import { 
+  Monitor, Camera, Wifi, Settings, LogOut, VideoOff, 
+  Sliders, Shield, RefreshCw, Layers, SlidersHorizontal, Info, Eye, EyeOff
+} from 'lucide-react';
 
 function Display() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const roomCode = searchParams.get('code')?.toUpperCase().trim() || '----';
 
+  // Network & Camera states
   const [socketStatus, setSocketStatus] = useState('Connecting...');
   const [isSocketConnected, setIsSocketConnected] = useState(false);
-  
   const [cameraStatus, setCameraStatus] = useState('waiting');
   const [availableCameras, setAvailableCameras] = useState([]);
-  const [selectedCamera, setSelectedCamera] = useState('');
+  const [selectedCamera, setSelectedCamera] = useState('webrtc');
+  const [activeStream, setActiveStream] = useState(null);
   
+  // Render stats
   const [engineMode, setEngineMode] = useState('shader');
   const [fps, setFps] = useState(0);
 
+  // User Configured Variables (Tuning Panel)
+  const [resolutionMode, setResolutionMode] = useState('window');
+  const [antialias, setAntialias] = useState(false);
+  const [dprCap, setDprCap] = useState(2.0);
+  const [aspectMode, setAspectMode] = useState('fit');
+  const [maxGain, setMaxGain] = useState(3.0);
+  const [lumaSmoothing, setLumaSmoothing] = useState(0.95);
+  
+  // UI controls
+  const [sidebarsOpen, setSidebarsOpen] = useState(true);
+
+  // Refs
   const socketRef = useRef(null);
   const ingestionRef = useRef(null);
   const engineRef = useRef(null);
@@ -29,8 +46,8 @@ function Display() {
   const monitorVideoRef = useRef(null); // Ref for raw camera stream monitoring preview
   const hiddenVideoRef = useRef(null);  // Hidden video element for Three.js VideoTexture input
 
+  // Hook 1: Socket.IO & Video Ingestion (runs once on roomCode mount)
   useEffect(() => {
-    // Connect to Socket.IO using default transports upgrade path
     const socket = io();
     socketRef.current = socket;
 
@@ -45,27 +62,12 @@ function Display() {
       setIsSocketConnected(false);
     });
 
-    // Initialize ShaderEngine
-    const engine = new ShaderEngine(
-      renderCanvasRef.current,
-      hiddenVideoRef.current,
-      {
-        fpsCap: 60,
-        onFpsUpdate: (fpsVal) => {
-          setFps(fpsVal);
-        }
-      }
-    );
-    engineRef.current = engine;
-    engine.pause(); // Wait for the stream to become active before starting the render loop
-
     // Initialize VideoIngestion
     const ingestion = new VideoIngestion(
       socket,
       roomCode,
       'display',
       (stream) => {
-        // Stream callback: trigger raw preview and setup texture input
         console.log('[Display] Camera stream received:', stream);
         if (monitorVideoRef.current) {
           monitorVideoRef.current.srcObject = stream;
@@ -76,11 +78,7 @@ function Display() {
           hiddenVideoRef.current.play().catch(e => console.warn(e));
         }
         setCameraStatus('live');
-        
-        // Start rendering if mode matches
-        if (engineRef.current && engineMode === 'shader') {
-          engineRef.current.resume();
-        }
+        setActiveStream(stream);
       },
       (devices) => {
         setAvailableCameras(devices);
@@ -98,15 +96,7 @@ function Display() {
     socket.on('preset_change', (d) => console.log('[Display] preset_change:', d));
     socket.on('slider_update', (d) => console.log('[Display] slider_update:', d));
     socket.on('engine_switch', (d) => {
-      const mode = d.mode ?? 'shader';
-      setEngineMode(mode);
-      if (engineRef.current) {
-        if (mode === 'shader') {
-          engineRef.current.resume();
-        } else {
-          engineRef.current.pause();
-        }
-      }
+      setEngineMode(d.mode ?? 'shader');
     });
     socket.on('prompt_update', (d) => console.log('[Display] prompt_update:', d));
     socket.on('audio_source_change', (d) => console.log('[Display] audio_source:', d));
@@ -117,24 +107,88 @@ function Display() {
       }
     });
 
-    // Clean up
     return () => {
       socket.disconnect();
       ingestion.destroy();
+      setActiveStream(null);
+    };
+  }, [roomCode]);
+
+  // Hook 2: ShaderEngine Context Lifecycle (recreates WebGL context when antialias, resolution or DPR changes)
+  useEffect(() => {
+    if (!renderCanvasRef.current || !hiddenVideoRef.current || !activeStream) return;
+
+    console.log('[Display] Initializing/Recreating ShaderEngine');
+    const engine = new ShaderEngine(
+      renderCanvasRef.current,
+      hiddenVideoRef.current,
+      {
+        fpsCap: 60,
+        antialias: antialias,
+        aspectMode: aspectMode,
+        resolutionMode: resolutionMode,
+        dprCap: dprCap,
+        lumaSmoothing: lumaSmoothing,
+        maxGain: maxGain,
+        onFpsUpdate: (fpsVal) => {
+          setFps(fpsVal);
+        }
+      }
+    );
+    engineRef.current = engine;
+    
+    if (cameraStatus === 'live' && engineMode === 'shader') {
+      engine.resume();
+    } else {
+      engine.pause();
+    }
+
+    return () => {
       if (engineRef.current) {
+        console.log('[Display] Cleaning up ShaderEngine context');
         engineRef.current.destroy();
+        engineRef.current = null;
       }
     };
-  }, [roomCode, engineMode]);
+  }, [antialias, resolutionMode, dprCap, activeStream]);
 
-  // Handle local UVC camera selection
-  const handleCameraChange = async (e) => {
-    const deviceId = e.target.value;
+  // Hook 3: Propagate lightweight parameters dynamically to active engine
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setAspectMode(aspectMode);
+    }
+  }, [aspectMode]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setMaxGain(maxGain);
+    }
+  }, [maxGain]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setLumaSmoothing(lumaSmoothing);
+    }
+  }, [lumaSmoothing]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      if (engineMode === 'shader' && cameraStatus === 'live') {
+        engineRef.current.resume();
+      } else {
+        engineRef.current.pause();
+      }
+    }
+  }, [engineMode, cameraStatus]);
+
+  // Handle local camera selection via HeroUI Select
+  const handleCameraChangeDirect = async (deviceId) => {
     setSelectedCamera(deviceId);
     if (deviceId === 'webrtc') {
       setCameraStatus('waiting');
       if (monitorVideoRef.current) monitorVideoRef.current.srcObject = null;
       if (hiddenVideoRef.current) hiddenVideoRef.current.srcObject = null;
+      setActiveStream(null);
       ingestionRef.current.stopLocalStream();
       if (engineRef.current) {
         engineRef.current.pause();
@@ -142,7 +196,8 @@ function Display() {
     } else if (deviceId) {
       setCameraStatus('loading');
       try {
-        await ingestionRef.current.startDisplayLocalCamera(deviceId);
+        const stream = await ingestionRef.current.startDisplayLocalCamera(deviceId);
+        setActiveStream(stream);
       } catch (err) {
         setCameraStatus('error');
       }
@@ -150,89 +205,301 @@ function Display() {
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden select-none">
+    <div className="flex w-screen h-screen overflow-hidden bg-zinc-950 text-zinc-100 select-none">
       
-      {/* Target Canvas for WebGL renderer */}
-      <canvas ref={renderCanvasRef} className="absolute inset-0 w-full h-full block z-0" />
-
-      {/* Hidden Video element for Three.js texture input */}
-      <video ref={hiddenVideoRef} muted playsInline className="hidden" />
-
-      {/* Top HUD Bar */}
-      <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between bg-background/80 backdrop-blur-md border-b border-border z-10 text-xs text-muted-foreground">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-success' : 'bg-danger'}`} />
-            <span>{socketStatus}</span>
+      {/* ── LEFT SIDEBAR (INGESTION & RENDERER) ────────────────────────────────── */}
+      {sidebarsOpen && (
+        <div className="w-80 border-r border-zinc-800 bg-zinc-900/60 backdrop-blur-md p-5 flex flex-col gap-6 overflow-y-auto z-10 animate-in fade-in slide-in-from-left-5">
+          <div>
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              <Sliders className="size-5 text-primary" />
+              Ingestion & Renderer
+            </h1>
+            <p className="text-[10px] text-zinc-500 font-semibold tracking-wider uppercase mt-1">Render Engine Settings</p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${cameraStatus === 'live' ? 'bg-success' : cameraStatus === 'loading' ? 'bg-warning animate-pulse' : 'bg-muted-foreground'}`} />
-            <span>Camera: {cameraStatus === 'live' ? 'Live' : cameraStatus === 'loading' ? 'Loading' : 'Waiting'}</span>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <span className="font-semibold text-muted-foreground">
-            Session Code: <span className="font-mono text-primary font-extrabold tracking-wider">{roomCode}</span>
-          </span>
-          <span className="bg-muted text-muted-foreground font-mono px-2 py-0.5 rounded uppercase">
-            {engineMode}
-          </span>
-          <span className="font-mono text-foreground">
-            {fps} FPS
-          </span>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="px-2 min-w-0"
-            onPress={() => navigate('/')}
-          >
-            <LogOut className="size-4" />
-          </Button>
-        </div>
-      </div>
+          {/* Camera Ingestion Card */}
+          <Card className="bg-zinc-950/80 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-zinc-300 font-bold text-xs uppercase tracking-wider">
+              <Camera className="size-4 text-zinc-400" />
+              Camera Ingestion
+            </div>
+            
+            <div className="space-y-1">
+              <Select
+                placeholder="Ingestion Source"
+                value={selectedCamera}
+                onChange={(key) => handleCameraChangeDirect(key)}
+              >
+                <Select.Trigger className="w-full bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-xs">
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover className="bg-zinc-900 border-zinc-800">
+                  <ListBox>
+                    <ListBox.Item id="webrtc" textValue="WebRTC Wireless Camera">
+                      📱 WebRTC Phone (Wireless)
+                    </ListBox.Item>
+                    {availableCameras.map((device) => (
+                      <ListBox.Item key={device.deviceId} id={device.deviceId} textValue={device.label || 'USB Camera'}>
+                        🔌 {device.label || `USB Camera (${device.deviceId.slice(0, 5)})`}
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </div>
+          </Card>
 
-      {/* Waiting screen (shown when no camera stream is active) */}
-      {cameraStatus === 'waiting' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-background/90 z-5 text-center p-6">
-          <Spinner size="lg" />
-          <p className="text-sm text-muted-foreground">
-            Waiting for camera feed stream...
-          </p>
-          <div className="text-xs text-muted-foreground max-w-sm">
-            Open the <strong className="text-foreground">Remote Control</strong> page on a smartphone or client device and join using code:
-            <span className="block font-mono text-xl text-primary font-bold tracking-widest mt-2">{roomCode}</span>
-          </div>
+          {/* WebGL Resolution & Pipeline Card */}
+          <Card className="bg-zinc-950/80 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-zinc-300 font-bold text-xs uppercase tracking-wider">
+              <Layers className="size-4 text-zinc-400" />
+              WebGL Output Resolution
+            </div>
+
+            {/* Resolution dropdown */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Resolution Mode</Label>
+              <Select
+                value={resolutionMode}
+                onChange={(key) => setResolutionMode(key)}
+              >
+                <Select.Trigger className="w-full bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-xs">
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover className="bg-zinc-900 border-zinc-800">
+                  <ListBox>
+                    <ListBox.Item id="window" textValue="Match Window (Fluid)">🖥️ Match Window (Fluid)</ListBox.Item>
+                    <ListBox.Item id="1080p" textValue="Fixed 1080p (1920x1080)">📺 Fixed 1080p (1920x1080)</ListBox.Item>
+                    <ListBox.Item id="720p" textValue="Fixed 720p (1280x720)">🎬 Fixed 720p (1280x720)</ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </div>
+
+            {/* Anti-aliasing toggler */}
+            <div className="flex items-center justify-between py-1.5 border-t border-zinc-800">
+              <span className="text-[11px] text-zinc-300 font-medium">WebGL Anti-aliasing (MSAA)</span>
+              <Switch 
+                isSelected={antialias} 
+                onChange={setAntialias}
+                size="sm"
+              >
+                <Switch.Content>
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                </Switch.Content>
+              </Switch>
+            </div>
+
+            {/* DPR capping slider */}
+            {resolutionMode === 'window' && (
+              <div className="space-y-1 border-t border-zinc-800 pt-3">
+                <Slider
+                  minValue={1.0}
+                  maxValue={3.0}
+                  step={0.1}
+                  value={dprCap}
+                  onChange={setDprCap}
+                  className="w-full"
+                >
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">DPR / DPI Capping</Label>
+                  <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                  <Slider.Track className="bg-zinc-800">
+                    <Slider.Fill className="bg-primary" />
+                    <Slider.Thumb className="bg-primary" />
+                  </Slider.Track>
+                </Slider>
+              </div>
+            )}
+          </Card>
         </div>
       )}
 
-      {/* Local UVC Device Selector overlay */}
-      <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 pointer-events-auto">
-        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1">
-          Camera Ingestion Source
-        </label>
-        <select
-          value={selectedCamera}
-          onChange={handleCameraChange}
-          className="border border-border text-foreground text-xs rounded-xl px-3 py-2 outline-none focus:border-primary cursor-pointer shadow-lg bg-background"
-        >
-          <option value="webrtc">📱 WebRTC Phone Camera (Wireless)</option>
-          {availableCameras.map((device) => (
-            <option key={device.deviceId} value={device.deviceId}>
-              🔌 {device.label || `USB Camera (${device.deviceId.slice(0, 5)})`}
-            </option>
-          ))}
-        </select>
+      {/* ── CENTER DISPLAY PORT (WebGL Canvas) ─────────────────────────────────── */}
+      <div className="flex-1 h-full relative flex items-center justify-center bg-black">
+        {/* WebGL Target Canvas */}
+        <canvas ref={renderCanvasRef} className="w-full h-full block z-0" />
+
+        {/* Hidden video tag for VideoTexture binding */}
+        <video ref={hiddenVideoRef} muted playsInline className="hidden" />
+
+        {/* HUD control overlays */}
+        <div className="absolute top-4 left-4 z-20 flex gap-2">
+          <Button
+            size="sm"
+            onPress={() => setSidebarsOpen(!sidebarsOpen)}
+            className="bg-zinc-900/80 hover:bg-zinc-800/80 border border-zinc-800 text-zinc-200 backdrop-blur-md rounded-xl px-3 py-1.5 font-bold shadow-lg min-w-0"
+          >
+            {sidebarsOpen ? <EyeOff className="size-4 mr-1.5 inline" /> : <Eye className="size-4 mr-1.5 inline" />}
+            {sidebarsOpen ? 'Hide Panels' : 'Show Controls'}
+          </Button>
+        </div>
+
+        {/* Waiting placeholder */}
+        {cameraStatus === 'waiting' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-zinc-950/95 z-5 text-center p-6">
+            <Spinner size="lg" />
+            <p className="text-sm text-zinc-400">
+              Waiting for camera feed stream...
+            </p>
+            <div className="text-xs text-zinc-500 max-w-sm">
+              Open the <strong className="text-zinc-200">Remote Control</strong> page on a smartphone or client device and join using code:
+              <span className="block font-mono text-2xl text-primary font-bold tracking-widest mt-2">{roomCode}</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Display Monitor - Raw Camera Feed Preview (Bottom-Right overlay) */}
-      <div className="absolute bottom-4 right-4 z-10 w-48 h-32 rounded-2xl overflow-hidden border border-border bg-background shadow-2xl flex flex-col">
-        <div className="flex items-center justify-between px-3 py-1 bg-muted/60 border-b border-border text-[9px] font-semibold text-muted-foreground">
+      {/* ── RIGHT SIDEBAR (TUNING & TELEMETRY) ─────────────────────────────────── */}
+      {sidebarsOpen && (
+        <div className="w-80 border-l border-zinc-800 bg-zinc-900/60 backdrop-blur-md p-5 flex flex-col gap-6 overflow-y-auto z-10 animate-in fade-in slide-in-from-right-5">
+          <div>
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              <SlidersHorizontal className="size-5 text-primary" />
+              Tuning & Stats
+            </h1>
+            <p className="text-[10px] text-zinc-500 font-semibold tracking-wider uppercase mt-1">Live Calibrations</p>
+          </div>
+
+          {/* Telemetry card */}
+          <Card className="bg-zinc-950/80 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-zinc-300 font-bold text-xs uppercase tracking-wider">
+              <Info className="size-4 text-zinc-400" />
+              System Telemetry
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-zinc-400">
+              <div className="bg-zinc-900/50 p-2 rounded-xl border border-zinc-900">
+                <span className="text-[8px] text-zinc-500 block">SESSION CODE</span>
+                <span className="text-primary font-extrabold text-xs">{roomCode}</span>
+              </div>
+              <div className="bg-zinc-900/50 p-2 rounded-xl border border-zinc-900">
+                <span className="text-[8px] text-zinc-500 block">FRAME RATE</span>
+                <span className="text-zinc-100 font-extrabold text-xs">{fps} FPS</span>
+              </div>
+              <div className="bg-zinc-900/50 p-2 rounded-xl border border-zinc-900">
+                <span className="text-[8px] text-zinc-500 block">RENDER SIZE</span>
+                <span className="text-zinc-100 font-extrabold text-[10px]">
+                  {engineRef.current?.renderer?.domElement?.width || 0}×{engineRef.current?.renderer?.domElement?.height || 0}
+                </span>
+              </div>
+              <div className="bg-zinc-900/50 p-2 rounded-xl border border-zinc-900">
+                <span className="text-[8px] text-zinc-500 block">AVG LUMINANCE</span>
+                <span className="text-zinc-100 font-extrabold text-xs">
+                  {Math.round(engineRef.current?.avgLuma * 100) || 0}%
+                </span>
+              </div>
+            </div>
+
+            {/* Connection and Camera details */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-zinc-800 text-[10px]">
+              <div className="flex items-center justify-between text-zinc-400">
+                <span>Signaling Server:</span>
+                <span className={`px-2 py-0.5 rounded-full font-semibold ${isSocketConnected ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
+                  {isSocketConnected ? 'CONNECTED' : 'OFFLINE'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-zinc-400">
+                <span>Camera Stream:</span>
+                <span className={`px-2 py-0.5 rounded-full font-semibold ${cameraStatus === 'live' ? 'bg-success/10 text-success' : 'bg-zinc-800 text-zinc-500'}`}>
+                  {cameraStatus.toUpperCase()}
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          {/* Aspect Ratio & Auto-Gain Tuning Card */}
+          <Card className="bg-zinc-950/80 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-zinc-300 font-bold text-xs uppercase tracking-wider">
+              <Settings className="size-4 text-zinc-400" />
+              Post-Process Calibrations
+            </div>
+
+            {/* Aspect Mode select */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Aspect Ratio Mode</Label>
+              <Select
+                value={aspectMode}
+                onChange={(key) => setAspectMode(key)}
+              >
+                <Select.Trigger className="w-full bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-xs">
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover className="bg-zinc-900 border-zinc-800">
+                  <ListBox>
+                    <ListBox.Item id="fit" textValue="Fit (Letterbox)">🎥 Fit (Letterbox)</ListBox.Item>
+                    <ListBox.Item id="cover" textValue="Cover (Crop & Fill)">✂️ Cover (Crop & Fill)</ListBox.Item>
+                    <ListBox.Item id="stretch" textValue="Stretch (Fill)">📐 Stretch (Fill)</ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </div>
+
+            {/* Max gain slider */}
+            <div className="space-y-1 border-t border-zinc-800 pt-3">
+              <Slider
+                minValue={1.0}
+                maxValue={10.0}
+                step={0.5}
+                value={maxGain}
+                onChange={setMaxGain}
+                className="w-full"
+              >
+                <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Auto-Gain Max Threshold</Label>
+                <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                <Slider.Track className="bg-zinc-800">
+                  <Slider.Fill className="bg-primary" />
+                  <Slider.Thumb className="bg-primary" />
+                </Slider.Track>
+              </Slider>
+            </div>
+
+            {/* Luma smoothing slider */}
+            <div className="space-y-1 border-t border-zinc-800 pt-3">
+              <Slider
+                minValue={0.5}
+                maxValue={0.99}
+                step={0.01}
+                value={lumaSmoothing}
+                onChange={setLumaSmoothing}
+                className="w-full"
+              >
+                <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Temporal Adaptation Speed</Label>
+                <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                <Slider.Track className="bg-zinc-800">
+                  <Slider.Fill className="bg-primary" />
+                  <Slider.Thumb className="bg-primary" />
+                </Slider.Track>
+              </Slider>
+            </div>
+          </Card>
+
+          {/* Quick Page Exit */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="w-full rounded-2xl border border-zinc-800 hover:bg-zinc-800 text-zinc-400 text-xs py-2 mt-auto"
+            onPress={() => navigate('/')}
+          >
+            <LogOut className="size-4 mr-2" />
+            Exit display mode
+          </Button>
+        </div>
+      )}
+
+      {/* Raw Camera Monitor overlay (stays visible when sidebars are closed, but slides into view) */}
+      <div className="absolute bottom-4 right-4 z-20 w-48 h-32 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col">
+        <div className="flex items-center justify-between px-3 py-1 bg-zinc-900 border-b border-zinc-800 text-[9px] font-semibold text-zinc-400">
           <div className="flex items-center gap-1">
             <Camera className="size-3" />
             <span>RAW MONITOR FEED</span>
           </div>
-          {cameraStatus === 'live' && <span className="text-[8px] bg-success-soft text-success px-1 rounded animate-pulse">LIVE</span>}
+          {cameraStatus === 'live' && <span className="text-[8px] bg-success/20 text-success px-1 rounded animate-pulse">LIVE</span>}
         </div>
         <div className="flex-1 relative flex items-center justify-center bg-black">
           <video
@@ -242,7 +509,7 @@ function Display() {
             className={`w-full h-full object-cover ${cameraStatus === 'live' ? 'block' : 'hidden'}`}
           />
           {cameraStatus !== 'live' && (
-            <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
+            <div className="flex flex-col items-center gap-1.5 text-zinc-600">
               <VideoOff className="size-5" />
               <span className="text-[8px] tracking-wide uppercase">No Signal</span>
             </div>

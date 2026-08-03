@@ -26,6 +26,11 @@ export class ShaderEngine {
     // Configurations
     this.fpsCap = options.fpsCap || 60;
     this.maxGain = options.maxGain || 3.0;
+    this.antialias = options.antialias !== undefined ? options.antialias : false;
+    this.aspectMode = options.aspectMode || 'fit';
+    this.resolutionMode = options.resolutionMode || 'window';
+    this.dprCap = options.dprCap || 2.0;
+    this.lumaSmoothing = options.lumaSmoothing !== undefined ? options.lumaSmoothing : 0.95;
     this.onFpsUpdate = options.onFpsUpdate || null;
 
     // Temporal smoothing state
@@ -61,13 +66,10 @@ export class ShaderEngine {
   }
 
   init() {
-    const width = this.canvas.clientWidth || window.innerWidth;
-    const height = this.canvas.clientHeight || window.innerHeight;
-
-    // 1. Initialize WebGL2 WebGLRenderer
+    // 1. Initialize WebGL2 WebGLRenderer with user antialiasing preference
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
-      antialias: false,
+      antialias: this.antialias,
       powerPreference: 'high-performance',
       alpha: false,
       depth: false,
@@ -79,8 +81,18 @@ export class ShaderEngine {
       console.warn('[ShaderEngine] WebGL2 not natively supported. Falling back to WebGL1.');
     }
 
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setSize(width, height, false);
+    // Call resize to set initial sizes correctly
+    this.prepassTarget = new THREE.WebGLRenderTarget(1, 1, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.UnsignedByteType,
+      depthBuffer: false,
+      stencilBuffer: false
+    });
+    this.prepassTarget.texture.generateMipmaps = false;
+
+    this.resize();
 
     // 2. Fullscreen blitting orthographic camera & geometry
     this.quadGeometry = new THREE.PlaneGeometry(2, 2);
@@ -105,16 +117,6 @@ export class ShaderEngine {
     });
     this.lumaTarget.texture.generateMipmaps = false;
 
-    this.prepassTarget = new THREE.WebGLRenderTarget(width, height, {
-      minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter,
-      format: THREE.RGBAFormat,
-      type: THREE.UnsignedByteType,
-      depthBuffer: false,
-      stencilBuffer: false
-    });
-    this.prepassTarget.texture.generateMipmaps = false;
-
     // 5. Shader Materials
     this.lumaDownMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -130,7 +132,8 @@ export class ShaderEngine {
       uniforms: {
         tDiffuse: { value: this.videoTexture },
         uAvgLuma: { value: this.avgLuma },
-        uMaxGain: { value: this.maxGain }
+        uMaxGain: { value: this.maxGain },
+        uVideoScale: { value: new THREE.Vector2(1, 1) }
       },
       vertexShader: VERT_GLSL,
       fragmentShader: AUTOGAIN_FRAG,
@@ -179,13 +182,48 @@ export class ShaderEngine {
     }
   }
 
+  setAspectMode(mode) {
+    this.aspectMode = mode;
+  }
+
+  setResolutionMode(mode) {
+    this.resolutionMode = mode;
+    this.resize();
+  }
+
+  setDprCap(dpr) {
+    this.dprCap = dpr;
+    this.resize();
+  }
+
+  setLumaSmoothing(smoothing) {
+    this.lumaSmoothing = smoothing;
+  }
+
   resize() {
     if (!this.canvas || !this.renderer) return;
-    const width = this.canvas.clientWidth || window.innerWidth;
-    const height = this.canvas.clientHeight || window.innerHeight;
 
+    let width = this.canvas.clientWidth || window.innerWidth;
+    let height = this.canvas.clientHeight || window.innerHeight;
+
+    if (this.resolutionMode === '1080p') {
+      width = 1920;
+      height = 1080;
+    } else if (this.resolutionMode === '720p') {
+      width = 1280;
+      height = 720;
+    }
+
+    // Set pixel ratio: use cap for fluid window, 1.0 for fixed resolutions
+    const pixelRatio = this.resolutionMode === 'window' 
+      ? Math.min(window.devicePixelRatio, this.dprCap) 
+      : 1.0;
+
+    this.renderer.setPixelRatio(pixelRatio);
     this.renderer.setSize(width, height, false);
-    this.prepassTarget.setSize(width, height);
+    if (this.prepassTarget) {
+      this.prepassTarget.setSize(width, height);
+    }
   }
 
   pause() {
@@ -226,14 +264,40 @@ export class ShaderEngine {
     this.renderer.readRenderTargetPixels(this.lumaTarget, 0, 0, 1, 1, this.lumaBuffer);
     const measuredLuma = this.lumaBuffer[0] / 255.0;
 
-    // Exponential smoothing: avgLuma = avgLuma * 0.95 + measuredLuma * 0.05
-    this.avgLuma = this.avgLuma * 0.95 + measuredLuma * 0.05;
+    // Exponential smoothing: avgLuma = avgLuma * smoothing + measuredLuma * (1 - smoothing)
+    this.avgLuma = this.avgLuma * this.lumaSmoothing + measuredLuma * (1.0 - this.lumaSmoothing);
 
-    // --- Pass 2: Auto-Gain Equalization ---
+    // --- Pass 2: Auto-Gain Equalization (including Aspect Ratio Scaling) ---
+    const vWidth = this.videoElement.videoWidth || 1920;
+    const vHeight = this.videoElement.videoHeight || 1080;
+    const vAspect = vWidth / vHeight;
+
+    const cWidth = this.renderer.domElement.width;
+    const cHeight = this.renderer.domElement.height;
+    const cAspect = cWidth / cHeight;
+
+    let scaleX = 1.0;
+    let scaleY = 1.0;
+
+    if (this.aspectMode === 'fit') {
+      if (cAspect > vAspect) {
+        scaleX = cAspect / vAspect;
+      } else {
+        scaleY = vAspect / cAspect;
+      }
+    } else if (this.aspectMode === 'cover') {
+      if (cAspect > vAspect) {
+        scaleY = vAspect / cAspect;
+      } else {
+        scaleX = cAspect / vAspect;
+      }
+    }
+
     this.quadMesh.material = this.autoGainMaterial;
     this.autoGainMaterial.uniforms.tDiffuse.value = this.videoTexture;
     this.autoGainMaterial.uniforms.uAvgLuma.value = this.avgLuma;
     this.autoGainMaterial.uniforms.uMaxGain.value = this.maxGain;
+    this.autoGainMaterial.uniforms.uVideoScale.value.set(scaleX, scaleY);
 
     this.renderer.setRenderTarget(this.prepassTarget);
     this.renderer.render(this.quadScene, this.quadCamera);
