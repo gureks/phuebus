@@ -382,18 +382,24 @@
 > Ask clarifying questions if and when they arise.
 
 ### Decisions Triggered
-- [DEC-011] P1-7 preset storage — hardcoded JS objects, no YAML (user-saved presets deferred to Phase 2)
-- [DEC-012] P1-7 engine switch — hard cut (no crossfade in Phase 1)
-- [DEC-013] P1-8 bottom sheet — 55% viewport height when open
-- [DEC-014] P1-9 HUD — auto-hide after 4s, reappear on mouse move
-- [DEC-015] P1-9 QR code — qrcode npm package (3KB)
-- [DEC-016] P1-10 HTTPS — mkcert self-signed cert generated at server start
-- [DEC-017] P2-1 ControlNet — LineArt conditioning (stylized, projection-oriented)
-- [DEC-018] P2-3 interpolation — linear blend (< 1ms), RIFE deferred
-- [DEC-019] P3-1 platform — macOS first, Windows follow-up
+- [DEC-013] P1-7 preset storage — hardcoded JS objects and unified switching strategy
+- [DEC-014] P1-8 bottom sheet — mobile remote with 2x3 grid and swipe-up parameter sheet
+- [DEC-015] P2-1 AI Engine Architecture decision — local MLX (Apple Silicon) + cloud StreamDiffusion hybrid
 
 ### Outputs Produced
-- (to be filled in as work completes)
+- `src/client/engine/presets.js`
+- `src/client/engine/EngineRouter.js` + `EngineRouter.test.js`
+- `src/client/engine/Recorder.js` + `Recorder.test.js`
+- `src/client/engine/DiffusionEngine.js` + `DiffusionEngine.test.js`
+- `src/client/engine/ModelPackManager.js` + `ModelPackManager.test.js`
+- `src/client/components/Display.jsx` (wired router, presets grid, session QR, recorder, HUD auto-hide)
+- `src/client/components/Remote.jsx` (overhauled mobile UI with preset grid and sliding bottom drawer)
+- `ai_engine/server.py` + `requirements.txt` (FastAPI local SDXL Turbo websocket server)
+- `src-tauri/` (Cargo.toml, tauri.conf.json, build.rs, main.rs, capabilities config)
+- `docs/research/AI_ENGINE.md` + `docs/research/FRAMEWORKS.md` (AI Alternatives scoring)
+- `docs/logs/DECISIONS.md` (DEC-013 & DEC-014)
 
 ### Notes
-- Manual verification deferred to single end-to-end session per user request
+- 47/47 passing tests under Vitest.
+- Verified compilation builds split vision WASM bundles, and frontend SPA builds compile cleanly.
+- Ready for manual verification of all phases (P1-5 onwards).

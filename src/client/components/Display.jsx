@@ -55,6 +55,7 @@ function Display() {
   const [audioHueSensitivity, setAudioHueSensitivity] = useState(1.0);
   const [audioDispersionSensitivity, setAudioDispersionSensitivity] = useState(2.0);
   const [motionFlowScale, setMotionFlowScale] = useState(5.0);
+  const [prompt, setPrompt] = useState('cyberpunk styled neon digital art');
   
   // Audio & Pose states (Phase 1.5 + 1.6)
   const [audioDevices, setAudioDevices] = useState([]);
@@ -253,7 +254,12 @@ function Display() {
       }
     });
 
-    socket.on('prompt_update', (d) => console.log('[Display] prompt_update:', d));
+    socket.on('prompt_update', (d) => {
+      console.log('[Display] prompt_update:', d);
+      if (d.prompt) {
+        setPrompt(d.prompt);
+      }
+    });
     socket.on('audio_source_change', (d) => {
       console.log('[Display] audio_source:', d);
       if (d.deviceId) {
@@ -498,6 +504,62 @@ function Display() {
       if (routerRef.current) routerRef.current.setLandmarks(null);
     }
   }, [poseTrackingEnabled]);
+
+  // Hook 8: AI Diffusion Ingestion Loop (captures and styles camera frames at 4fps)
+  useEffect(() => {
+    if (engineMode === 'shader' || cameraStatus !== 'live' || !hiddenVideoRef.current) return;
+
+    let active = true;
+    let timeoutId = null;
+
+    const captureCanvas = document.createElement('canvas');
+    const ctx = captureCanvas.getContext('2d');
+
+    const runDiffusion = async () => {
+      if (!active) return;
+
+      const video = hiddenVideoRef.current;
+      if (video.videoWidth && video.videoHeight) {
+        captureCanvas.width = 512;
+        captureCanvas.height = 512;
+        ctx.drawImage(video, 0, 0, 512, 512);
+
+        captureCanvas.toBlob(async (blob) => {
+          if (!blob || !active) return;
+
+          if (routerRef.current && routerRef.current._diffusionEngine) {
+            try {
+              const styledBitmap = await routerRef.current._diffusionEngine.generate(
+                blob,
+                prompt,
+                0.4
+              );
+              if (styledBitmap && active) {
+                routerRef.current.setDiffusionFrame(styledBitmap);
+              }
+            } catch (err) {
+              console.warn('[Display] AI generation failed:', err);
+            }
+          }
+
+          if (active) {
+            timeoutId = setTimeout(runDiffusion, 250);
+          }
+        }, 'image/jpeg', 0.8);
+      } else {
+        if (active) {
+          timeoutId = setTimeout(runDiffusion, 100);
+        }
+      }
+    };
+
+    runDiffusion();
+
+    return () => {
+      active = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [engineMode, cameraStatus, prompt]);
 
   // Handle local camera selection via HeroUI Select
   const handleCameraChangeDirect = async (deviceId) => {

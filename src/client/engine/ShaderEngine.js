@@ -74,6 +74,12 @@ export class ShaderEngine {
     // WebGL Pipeline properties
     this.renderer = null;
     this.videoTexture = null;
+    this.diffusionMode = false;
+    this.diffusionTexturePrev = null;
+    this.diffusionTextureCurr = null;
+    this.lastDiffusionFrameTime = 0;
+    this.interpolateMaterial = null;
+    this.interpolateTarget = null;
     this.quadGeometry = null;
     this.quadCamera = null;
     this.quadScene = null;
@@ -160,6 +166,31 @@ export class ShaderEngine {
     this.feedbackTargetA = createTarget(width, height);
     this.feedbackTargetB = createTarget(width, height);
     this.prevFrameTarget = createTarget(width, height);
+    this.interpolateTarget = createTarget(width, height);
+
+    const INTERPOLATE_FRAG = `
+      uniform sampler2D tPrev;
+      uniform sampler2D tCurr;
+      uniform float uMix;
+      varying vec2 vUv;
+      void main() {
+        vec4 colorPrev = texture2D(tPrev, vUv);
+        vec4 colorCurr = texture2D(tCurr, vUv);
+        gl_FragColor = mix(colorPrev, colorCurr, uMix);
+      }
+    `;
+
+    this.interpolateMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        tPrev: { value: null },
+        tCurr: { value: null },
+        uMix: { value: 0.0 }
+      },
+      vertexShader: VERT_GLSL,
+      fragmentShader: INTERPOLATE_FRAG,
+      depthWrite: false,
+      depthTest: false
+    });
 
     // 5. Shader Materials
     this.lumaDownMaterial = new THREE.ShaderMaterial({
@@ -468,9 +499,26 @@ export class ShaderEngine {
 
     const timeSec = timestamp * 0.001;
 
+    let activeInputTexture = this.videoTexture;
+
+    if (this.diffusionMode && this.diffusionTextureCurr) {
+      const now = performance.now();
+      const mixVal = Math.min((now - this.lastDiffusionFrameTime) / 250.0, 1.0);
+
+      this.quadMesh.material = this.interpolateMaterial;
+      this.interpolateMaterial.uniforms.tPrev.value = this.diffusionTexturePrev ? this.diffusionTexturePrev : this.diffusionTextureCurr;
+      this.interpolateMaterial.uniforms.tCurr.value = this.diffusionTextureCurr;
+      this.interpolateMaterial.uniforms.uMix.value = mixVal;
+
+      this.renderer.setRenderTarget(this.interpolateTarget);
+      this.renderer.render(this.quadScene, this.quadCamera);
+
+      activeInputTexture = this.interpolateTarget.texture;
+    }
+
     // --- Pass 1: Luma Extraction ---
     this.quadMesh.material = this.lumaDownMaterial;
-    this.lumaDownMaterial.uniforms.tDiffuse.value = this.videoTexture;
+    this.lumaDownMaterial.uniforms.tDiffuse.value = activeInputTexture;
     
     this.renderer.setRenderTarget(this.lumaTarget);
     this.renderer.render(this.quadScene, this.quadCamera);
@@ -506,7 +554,7 @@ export class ShaderEngine {
     }
 
     this.quadMesh.material = this.autoGainMaterial;
-    this.autoGainMaterial.uniforms.tDiffuse.value = this.videoTexture;
+    this.autoGainMaterial.uniforms.tDiffuse.value = activeInputTexture;
     this.autoGainMaterial.uniforms.uAvgLuma.value = this.avgLuma;
     this.autoGainMaterial.uniforms.uMaxGain.value = this.maxGain;
     this.autoGainMaterial.uniforms.uVideoScale.value.set(scaleX, scaleY);
@@ -584,6 +632,28 @@ export class ShaderEngine {
     }
   }
 
+  setDiffusionMode(enabled) {
+    this.diffusionMode = !!enabled;
+    console.log(`[ShaderEngine] Diffusion mode: ${this.diffusionMode}`);
+  }
+
+  setDiffusionFrame(imageBitmap) {
+    if (!imageBitmap) return;
+
+    if (this.diffusionTexturePrev) {
+      this.diffusionTexturePrev.dispose();
+    }
+    this.diffusionTexturePrev = this.diffusionTextureCurr;
+
+    this.diffusionTextureCurr = new THREE.Texture(imageBitmap);
+    this.diffusionTextureCurr.minFilter = THREE.LinearFilter;
+    this.diffusionTextureCurr.magFilter = THREE.LinearFilter;
+    this.diffusionTextureCurr.format = THREE.RGBAFormat;
+    this.diffusionTextureCurr.needsUpdate = true;
+
+    this.lastDiffusionFrameTime = performance.now();
+  }
+
   destroy() {
     this.pause();
     window.removeEventListener('resize', this.resize);
@@ -592,6 +662,11 @@ export class ShaderEngine {
       this.renderer.setAnimationLoop(null);
       this.renderer.dispose();
     }
+
+    if (this.diffusionTexturePrev) this.diffusionTexturePrev.dispose();
+    if (this.diffusionTextureCurr) this.diffusionTextureCurr.dispose();
+    if (this.interpolateTarget) this.interpolateTarget.dispose();
+    if (this.interpolateMaterial) this.interpolateMaterial.dispose();
 
     if (this.videoTexture) this.videoTexture.dispose();
     if (this.quadGeometry) this.quadGeometry.dispose();

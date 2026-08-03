@@ -50,29 +50,22 @@ export class EngineRouter {
     this._state = 'switching';
 
     if (mode === 'shader') {
-      // Shader engine is always ready — immediate hard cut
+      this.setDiffusionMode(false);
       if (this._shaderEngine) this._shaderEngine.resume();
       this._state = 'active';
     } else if (mode === 'diffusion' || mode === 'cloud') {
-      // Phase 2: DiffusionEngine warm-up; in Phase 1 stub it's a no-op
-      if (this._shaderEngine) this._shaderEngine.pause();
+      this.setDiffusionMode(true);
+      if (this._shaderEngine) this._shaderEngine.resume();
       if (this._diffusionEngine) {
         if (mode === 'cloud' && this._diffusionEngine._serverUrl) {
           this._diffusionEngine.setMode('cloud', this._diffusionEngine._serverUrl);
         } else {
           this._diffusionEngine.setMode('local');
         }
-      }
-      // Phase 1 stub: DiffusionEngine.isReady() returns false, so we fall back to shader
-      if (this._diffusionEngine && !this._diffusionEngine.isReady()) {
-        console.warn(`[EngineRouter] DiffusionEngine not ready (Phase 2 stub). Staying in shader mode.`);
-        this._mode  = 'shader';
-        if (this._shaderEngine) this._shaderEngine.resume();
+        this._state = this._diffusionEngine.isReady() ? 'active' : 'warming-up';
+      } else {
         this._state = 'active';
-        if (this._onModeChange) this._onModeChange('shader');
-        return;
       }
-      this._state = 'active';
     } else {
       console.warn(`[EngineRouter] Unknown mode: '${mode}'. No-op.`);
       this._mode  = prevMode;
@@ -125,9 +118,7 @@ export class EngineRouter {
    * Resume the active engine.
    */
   resume() {
-    if (this._mode === 'shader' && this._shaderEngine) {
-      this._shaderEngine.resume();
-    }
+    if (this._shaderEngine) this._shaderEngine.resume();
     this._state = 'active';
   }
 
@@ -157,6 +148,26 @@ export class EngineRouter {
    */
   setLandmarks(landmarks) {
     if (this._shaderEngine) this._shaderEngine.setLandmarks(landmarks);
+  }
+
+  /**
+   * Enable/disable diffusion mode in the shader engine.
+   * @param {boolean} enabled
+   */
+  setDiffusionMode(enabled) {
+    if (this._shaderEngine && this._shaderEngine.setDiffusionMode) {
+      this._shaderEngine.setDiffusionMode(enabled);
+    }
+  }
+
+  /**
+   * Send a styled ImageBitmap to the shader engine.
+   * @param {ImageBitmap} imageBitmap
+   */
+  setDiffusionFrame(imageBitmap) {
+    if (this._shaderEngine && this._shaderEngine.setDiffusionFrame) {
+      this._shaderEngine.setDiffusionFrame(imageBitmap);
+    }
   }
 
   destroy() {

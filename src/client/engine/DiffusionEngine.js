@@ -1,53 +1,128 @@
-// DiffusionEngine.js — Phase 2 AI Diffusion Engine (Phase 1 Stub)
+// DiffusionEngine.js — Real-Time AI Diffusion Engine
 //
-// This stub satisfies the EngineRouter interface contract so Phase 1 code
-// can reference it without Phase 2 being implemented.
-//
-// Interface contract:
-//   generate(frameBlob, prompt, strength) → Promise<ImageBitmap | null>
-//   setMode(mode, serverUrl)              → void
-//   isReady()                             → boolean
-//   destroy()                             → void
-//
-// All methods log a Phase 2 warning and return null/false.
-// > Note: Real implementation arrives in Phase 2, Prompt 2.
+// Responsibilities:
+// - Manages WebSocket connection to local or cloud StreamDiffusion.
+// - Transmits frame blobs to style diffusion pipeline.
+// - Returns processed styled ImageBitmaps asynchronously.
+// - Implements fallback state machine for connection drops.
 
 export class DiffusionEngine {
   constructor() {
     this._mode = 'local'; // 'local' | 'cloud'
-    this._serverUrl = null;
-    console.log('[DiffusionEngine] Stub initialized — Phase 2 not yet implemented');
+    this._serverUrl = 'ws://localhost:8080/ws/generate';
+    this.ws = null;
+    this._isConnected = false;
+    this._lastPrompt = '';
+    this._lastStrength = -1;
+
+    // Connect immediately
+    this._connect();
+  }
+
+  _connect() {
+    if (this.ws) {
+      try { this.ws.close(); } catch (_) {}
+    }
+
+    const url = this._mode === 'cloud' ? this._serverUrl : 'ws://localhost:8080/ws/generate';
+    console.log(`[DiffusionEngine] Connecting to: ${url}`);
+    
+    try {
+      this.ws = new WebSocket(url);
+      this.ws.binaryType = 'blob';
+
+      this.ws.onopen = () => {
+        console.log('[DiffusionEngine] WebSocket connected.');
+        this._isConnected = true;
+      };
+
+      this.ws.onclose = () => {
+        console.warn('[DiffusionEngine] WebSocket disconnected. Retrying in 3s...');
+        this._isConnected = false;
+        setTimeout(() => {
+          if (!this._isConnected) this._connect();
+        }, 3000);
+      };
+
+      this.ws.onerror = (err) => {
+        console.error('[DiffusionEngine] WebSocket error:', err);
+      };
+    } catch (e) {
+      console.error('[DiffusionEngine] Failed to create WebSocket:', e);
+    }
   }
 
   /**
-   * Generate an AI-diffused frame from the given camera frame.
-   * @param {Blob} frameBlob - JPEG-encoded camera frame
-   * @param {string} prompt - Text prompt for style conditioning
-   * @param {number} strength - img2img strength [0.0, 1.0]
+   * Switch between local and cloud diffusion modes.
+   * @param {'local' | 'cloud'} mode
+   * @param {string | null} serverUrl
+   */
+  setMode(mode, serverUrl = null) {
+    if (mode === this._mode && serverUrl === this._serverUrl) return;
+    this._mode = mode;
+    if (serverUrl) this._serverUrl = serverUrl;
+    this._connect();
+  }
+
+  isReady() {
+    return this._isConnected && this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Style a camera frame using AI Stable Diffusion.
+   * @param {Blob} frameBlob - JPEG frame
+   * @param {string} prompt - Prompt style
+   * @param {number} strength - Style match strength [0, 1]
    * @returns {Promise<ImageBitmap | null>}
    */
   async generate(frameBlob, prompt, strength = 0.4) {
-    console.warn('[DiffusionEngine] generate() called — Phase 2 not implemented. Returning null.');
-    return null;
-  }
+    if (!this.isReady()) {
+      return null;
+    }
 
-  /**
-   * Switch between local and cloud diffusion mode.
-   * @param {'local' | 'cloud'} mode
-   * @param {string | null} serverUrl - Required when mode === 'cloud'
-   */
-  setMode(mode, serverUrl = null) {
-    console.warn(`[DiffusionEngine] setMode('${mode}') called — Phase 2 not implemented. No-op.`);
-    this._mode = mode;
-    this._serverUrl = serverUrl;
-  }
+    return new Promise((resolve) => {
+      let timeoutId = setTimeout(() => {
+        this.ws.removeEventListener('message', onMessage);
+        resolve(null); // resolve with null on timeout
+      }, 500); // 500ms timeout budget
 
-  /** Returns true when the engine is ready to generate frames */
-  isReady() {
-    return false; // Phase 1 stub always returns false
+      const onMessage = async (event) => {
+        if (event.data instanceof Blob) {
+          clearTimeout(timeoutId);
+          this.ws.removeEventListener('message', onMessage);
+          try {
+            const bitmap = await createImageBitmap(event.data);
+            resolve(bitmap);
+          } catch (err) {
+            console.error('[DiffusionEngine] Bitmap creation failed:', err);
+            resolve(null);
+          }
+        }
+      };
+
+      this.ws.addEventListener('message', onMessage);
+
+      // Update prompt/strength parameters on sidecar if changed
+      if (prompt !== this._lastPrompt || strength !== this._lastStrength) {
+        this.ws.send(JSON.stringify({ prompt, strength }));
+        this._lastPrompt = prompt;
+        this._lastStrength = strength;
+      }
+
+      // Send raw JPEG bytes
+      this.ws.send(frameBlob);
+    });
   }
 
   destroy() {
-    console.log('[DiffusionEngine] destroy() — Phase 2 not implemented. No-op.');
+    if (this.ws) {
+      try {
+        this.ws.onclose = null;
+        this.ws.close();
+      } catch (_) {}
+      this.ws = null;
+    }
+    this._isConnected = false;
+    console.log('[DiffusionEngine] Destroyed.');
   }
 }

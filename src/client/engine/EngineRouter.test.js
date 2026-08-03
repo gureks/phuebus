@@ -58,23 +58,24 @@ describe('EngineRouter class', () => {
   it('should call onModeChange callback on mode switch', () => {
     const onModeChange = vi.fn();
     const r = new EngineRouter(shaderEngine, diffusionEngine, onModeChange);
-    // Note: diffusionEngine.isReady() returns false, so it falls back to shader
     r.switchTo('diffusion');
-    expect(onModeChange).toHaveBeenCalledWith('shader');
+    expect(onModeChange).toHaveBeenCalledWith('diffusion');
   });
 
-  it('should fall back to shader mode when DiffusionEngine stub isReady = false', () => {
+  it('should set state to warming-up when DiffusionEngine isReady = false', () => {
     router.switchTo('diffusion');
-    expect(router.mode).toBe('shader');
+    expect(router.mode).toBe('diffusion');
+    expect(router.state).toBe('warming-up');
     expect(shaderEngine.resume).toHaveBeenCalled();
   });
 
-  it('should stay in diffusion mode when DiffusionEngine isReady = true', () => {
+  it('should set state to active when DiffusionEngine isReady = true', () => {
     const readyDiffusion = createMockDiffusionEngine(true);
     const r = new EngineRouter(shaderEngine, readyDiffusion);
     r.switchTo('diffusion');
     expect(r.mode).toBe('diffusion');
-    expect(shaderEngine.pause).toHaveBeenCalled();
+    expect(r.state).toBe('active');
+    expect(shaderEngine.resume).toHaveBeenCalled();
   });
 
   it('should apply all preset fields to ShaderEngine', () => {
