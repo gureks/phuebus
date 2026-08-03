@@ -49,3 +49,6 @@ recordings/
 # Coverage
 coverage/
 src/coverage/
+
+# Certificates
+src/certs/

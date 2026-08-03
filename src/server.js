@@ -17,12 +17,14 @@
 
 require('dotenv').config();
 
-const http        = require('node:http');
+const https       = require('node:https');
+const fs          = require('node:fs');
 const path        = require('node:path');
 const os          = require('node:os');
 const express     = require('express');
 const { Server }  = require('socket.io');
 const { ExpressPeerServer } = require('peer');
+const selfsigned  = require('selfsigned');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
@@ -38,6 +40,25 @@ function getLanIP() {
   }
   return 'localhost';
 }
+
+// ── SSL / Secure Context setup ───────────────────────────────────────────────
+const { execSync } = require('node:child_process');
+const certsDir = path.join(__dirname, 'certs');
+const keyPath = path.join(certsDir, 'key.pem');
+const certPath = path.join(certsDir, 'cert.pem');
+
+if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
+  try {
+    execSync(`node "${path.join(__dirname, 'generate-certs.js')}"`, { stdio: 'inherit' });
+  } catch (err) {
+    console.error('[Server] Failed to generate SSL certificates:', err);
+  }
+}
+
+const sslOptions = {
+  key: fs.readFileSync(keyPath),
+  cert: fs.readFileSync(certPath),
+};
 
 // ── Room code generator ───────────────────────────────────────────────────────
 // Omits confusable characters: 0/O, 1/I/L
@@ -56,7 +77,7 @@ const DEFAULT_ROOM_CODE = generateCode();
 
 // ── App setup ─────────────────────────────────────────────────────────────────
 const app        = express();
-const httpServer = http.createServer(app);
+const httpServer = https.createServer(sslOptions, app);
 
 // ── Socket.IO ─────────────────────────────────────────────────────────────────
 // Force WebSocket transport — eliminates HTTP polling overhead for <10ms LAN latency
@@ -136,8 +157,8 @@ app.get('/api/session', (_req, res) => {
   res.json({
     roomCode:   DEFAULT_ROOM_CODE,
     port:       PORT,
-    remoteUrl:  `http://${lanIP}:${PORT}/remote?code=${DEFAULT_ROOM_CODE}`,
-    displayUrl: `http://${lanIP}:${PORT}/display?code=${DEFAULT_ROOM_CODE}`,
+    remoteUrl:  `https://${lanIP}:${PORT}/remote?code=${DEFAULT_ROOM_CODE}`,
+    displayUrl: `https://${lanIP}:${PORT}/display?code=${DEFAULT_ROOM_CODE}`,
   });
 });
 
@@ -248,13 +269,13 @@ io.on('connection', (socket) => {
 if (require.main === module) {
   httpServer.listen(PORT, '0.0.0.0', () => {
     const lanIP = getLanIP();
-    const remoteUrl = `http://${lanIP}:${PORT}/remote?code=${DEFAULT_ROOM_CODE}`;
+    const remoteUrl = `https://${lanIP}:${PORT}/remote?code=${DEFAULT_ROOM_CODE}`;
 
     console.log('');
     console.log('┌──────────────────────────────────────────────────────┐');
     console.log('│            Phuebus Engine  ·  Phase 1                │');
     console.log('├──────────────────────────────────────────────────────┤');
-    console.log(`│  Display  →  http://localhost:${PORT}/display          │`);
+    console.log(`│  Display  →  https://localhost:${PORT}/display         │`);
     console.log(`│  Remote   →  ${remoteUrl.padEnd(40)} │`);
     console.log(`│  Session Code: ${DEFAULT_ROOM_CODE}                              │`);
     console.log('│  (scan QR on /display or enter code on /remote)      │');

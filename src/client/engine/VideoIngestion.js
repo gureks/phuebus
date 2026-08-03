@@ -19,10 +19,12 @@ class VideoIngestion {
    * Initializes PeerJS and Socket.IO peer registration
    */
   async init() {
+    const isSecure = window.location.protocol === 'https:';
     const peerConfig = {
       host: window.location.hostname,
-      port: window.location.port ? parseInt(window.location.port, 10) : 80,
+      port: window.location.port ? parseInt(window.location.port, 10) : (isSecure ? 443 : 80),
       path: '/peerjs',
+      secure: isSecure,
       debug: 1, // log errors
       config: {
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
