@@ -194,9 +194,42 @@
 - [DEC-009] React/Vite Migration for HeroUI/ShadCN — Migrating frontend pages to a unified React build setup.
 
 ### Outputs Produced
+- `src/package.json` — Added React 19, Tailwind CSS v4, HeroUI v3, PeerJS client, and build scripts.
+- `src/vite.config.js` — Vite setup with proxies.
+- `src/index.html` — SPA mount root.
+- `src/client/main.jsx`, `App.jsx`, `index.css` — React Router & style entry.
+- `src/client/engine/VideoIngestion.js` — Ingestion manager class.
+- `src/client/components/Home.jsx`, `Display.jsx`, `Remote.jsx` — React page views.
+
+### Notes
+- Standardized package versions and resolved missing peer dependencies (`@react-aria/*`) during Rollup build.
+- Express code updated to serve the compiled SPA output folder `dist/` with fallback routing rules.
+
+---
+
+## P-006 — Debugging Remote Connection, Default HeroUI Styling, and Unit Testing
+
+- **Date:** 2026-08-03 21:11 (IST)
+- **Phase:** Phase 1
+- **Type:** Fix + Testing + Refactor
+
+### Prompt (verbatim)
+> 1. All 3 pages show 200 OK. The mobile remote shows a consistent connecting... message.
+>
+> 2. For UI, strictly use the default theme provided by HeroUI. Remove all extra theme styling(neon glow) and colors added. Use the MCP for documentation. Add these as strict instructions for future as well.
+>
+> 3. Add testing as a verify step for all future development. The dev done in current step needs to pass through unit tests, coverage tests, and browser based testing. Add these as instructions for future as well.
+>
+> 4. Video ingestion is not working for remote connection. error unkown. The desktop display shows a loading and waiting for stream message. The mobile remote shows a consistent connecting... message. Stream from same desktop camera is working.
+>
+> Debug and solve these before proceeding to Phase 1.3
+
+### Decisions Triggered
+- [DEC-010] HeroUI styling constraints: enforce default theme, no custom color/glow overrides.
+- [DEC-011] Automated testing integration: Vitest and coverage checking for backend endpoints and client logic.
+
+### Outputs Produced
 - *(To be updated during execution)*
 
 ### Notes
 - *(To be updated during execution)*
-
-

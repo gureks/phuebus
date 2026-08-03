@@ -45,3 +45,7 @@ recordings/
 
 # Logs
 *.log
+
+# Coverage
+coverage/
+src/coverage/

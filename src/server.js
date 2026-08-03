@@ -61,7 +61,7 @@ const httpServer = http.createServer(app);
 // ── Socket.IO ─────────────────────────────────────────────────────────────────
 // Force WebSocket transport — eliminates HTTP polling overhead for <10ms LAN latency
 const io = new Server(httpServer, {
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
   cors: { origin: '*' },
 });
 
@@ -246,18 +246,23 @@ io.on('connection', (socket) => {
 });
 
 // ── Start server ──────────────────────────────────────────────────────────────
-httpServer.listen(PORT, '0.0.0.0', () => {
-  const lanIP = getLanIP();
-  const remoteUrl = `http://${lanIP}:${PORT}/remote?code=${DEFAULT_ROOM_CODE}`;
+if (require.main === module) {
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    const lanIP = getLanIP();
+    const remoteUrl = `http://${lanIP}:${PORT}/remote?code=${DEFAULT_ROOM_CODE}`;
 
-  console.log('');
-  console.log('┌──────────────────────────────────────────────────────┐');
-  console.log('│            Phuebus Engine  ·  Phase 1                │');
-  console.log('├──────────────────────────────────────────────────────┤');
-  console.log(`│  Display  →  http://localhost:${PORT}/display          │`);
-  console.log(`│  Remote   →  ${remoteUrl.padEnd(40)} │`);
-  console.log(`│  Session Code: ${DEFAULT_ROOM_CODE}                              │`);
-  console.log('│  (scan QR on /display or enter code on /remote)      │');
-  console.log('└──────────────────────────────────────────────────────┘');
-  console.log('');
-});
+    console.log('');
+    console.log('┌──────────────────────────────────────────────────────┐');
+    console.log('│            Phuebus Engine  ·  Phase 1                │');
+    console.log('├──────────────────────────────────────────────────────┤');
+    console.log(`│  Display  →  http://localhost:${PORT}/display          │`);
+    console.log(`│  Remote   →  ${remoteUrl.padEnd(40)} │`);
+    console.log(`│  Session Code: ${DEFAULT_ROOM_CODE}                              │`);
+    console.log('│  (scan QR on /display or enter code on /remote)      │');
+    console.log('└──────────────────────────────────────────────────────┘');
+    console.log('');
+  });
+}
+
+module.exports = { app, httpServer, io, rooms, DEFAULT_ROOM_CODE };
+

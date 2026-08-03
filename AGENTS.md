@@ -203,6 +203,16 @@ If the push fails (e.g., remote has diverged):
 - If a better alternative is found during research, surface it in Stage 3 (Ask) — do not silently switch
 - Document any deviation from SPEC.md in a comment in the affected file
 
+### On HeroUI Styling
+- Strictly use the default theme provided by HeroUI.
+- Do not add any custom theme overrides, custom colors, text gradients, or neon glow box-shadows/borders (e.g. do not define custom variables or classes like `.glow-accent` or `.bg-zinc-950`).
+- Stick strictly to default semantic variables (`primary`, `secondary`, `success`, `danger`, `warning`, `default`, `background`, `foreground`, `border`, `muted-foreground`) and default HeroUI configurations.
+
+### On Automated Testing
+- All logic additions and modifications must include corresponding unit/integration tests and coverage checks using Vitest.
+- Before committing any changes, run `npm test` and `npm run test:coverage` during Stage 5: VERIFY to confirm all tests pass successfully.
+- Maintain robust mocking of browser-only APIs (like PeerJS, mediaDevices, and AudioContext) within test suites to prevent test runtime dependencies.
+
 ### On Phase Boundaries
 - Phase 2 code must NOT be implemented in Phase 1 prompts — stubs only
 - Phase 3 code must NOT be implemented before Phase 2 is complete

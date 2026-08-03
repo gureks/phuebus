@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import VideoIngestion from '../engine/VideoIngestion';
 import { Button, Card, Input } from '@heroui/react';
-import { Smartphone, FlipHorizontal, Camera, VideoOff, Settings, LogOut, Check, Wifi } from 'lucide-react';
+import { Smartphone, FlipHorizontal, Camera, VideoOff, LogOut, Check } from 'lucide-react';
 
 function Remote() {
   const [searchParams] = useSearchParams();
@@ -21,10 +21,17 @@ function Remote() {
 
   const [cameras, setCameras] = useState([]);
   const [selectedCamera, setSelectedCamera] = useState('');
+  const [logs, setLogs] = useState([]);
 
   const socketRef = useRef(null);
   const ingestionRef = useRef(null);
   const videoPreviewRef = useRef(null);
+
+  // Helper to add logs to screen for easy on-device debugging
+  const addLog = (msg) => {
+    console.log(msg);
+    setLogs(prev => [...prev.slice(-4), `${new Date().toLocaleTimeString()}: ${msg}`]);
+  };
 
   // Auto-fill code from URL if present
   useEffect(() => {
@@ -41,12 +48,14 @@ function Remote() {
     }
     
     setJoinStatus('Connecting...');
+    addLog(`Initiating connection for room: ${roomCode}`);
 
-    // Connect Socket.IO
-    const socket = io({ transports: ['websocket'] });
+    // Connect Socket.IO with fallback to polling for high mobile compatibility
+    const socket = io({ transports: ['websocket', 'polling'] });
     socketRef.current = socket;
 
     socket.on('connect', () => {
+      addLog('Socket connected successfully');
       setSocketStatus('connected');
       setIsSocketConnected(true);
       socket.emit('join_room', { roomCode });
@@ -55,53 +64,71 @@ function Remote() {
       initializeIngestion(socket);
     });
 
+    socket.on('connect_error', (err) => {
+      addLog(`Socket connection error: ${err.message}`);
+      setJoinStatus(`Connection failed: ${err.message}`);
+    });
+
     socket.on('disconnect', () => {
+      addLog('Socket disconnected');
       setSocketStatus('disconnected');
       setIsSocketConnected(false);
     });
   };
 
   const initializeIngestion = async (socket) => {
+    addLog('Initializing Video Ingestion...');
     const ingestion = new VideoIngestion(
       socket,
       roomCode,
       'remote',
       (stream) => {
-        // Local stream captured: play in preview
+        addLog('Local camera stream captured');
         if (videoPreviewRef.current) {
           videoPreviewRef.current.srcObject = stream;
-          videoPreviewRef.current.play().catch(e => console.warn(e));
+          videoPreviewRef.current.play().catch(e => addLog(`Video play error: ${e.message}`));
         }
         setStreamActive(true);
       },
       (devices) => {
+        addLog(`Found ${devices.length} camera(s)`);
         setCameras(devices);
       }
     );
     ingestionRef.current = ingestion;
 
     try {
+      addLog('Starting PeerJS connection...');
       await ingestion.init();
       setPeerStatus('connected');
+      addLog('PeerJS opened');
       
-      // Capture default stream
+      // Check for secure context for getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        addLog('Insecure context! Camera disabled. Use HTTPS or chrome://flags.');
+        throw new Error('Insecure Context (Requires HTTPS or localhost)');
+      }
+
+      addLog('Requesting camera stream...');
       const stream = await ingestion.startRemoteStream();
       
-      // Enumerate cameras for switcher dropdown
+      addLog('Enumerating cameras...');
       await ingestion.enumerateVideoDevices();
       
       // Listen to room_state updates. When a display peer ID appears, dial it!
       socket.on('room_state', (state) => {
-        console.log('[Remote] Room state updated:', state);
+        addLog(`Room state updated displayPeerId: ${state.displayPeerId}`);
         if (state.displayPeerId) {
           ingestion.callDisplay(state.displayPeerId);
         }
       });
 
       setIsJoined(true);
+      addLog('Joined successfully!');
     } catch (err) {
-      console.error('[Remote] Failed to setup camera ingestion:', err);
-      setJoinStatus('Failed to access camera.');
+      addLog(`Setup failed: ${err.message}`);
+      setJoinStatus(`Failed: ${err.message}`);
+      leaveSession();
     }
   };
 
@@ -116,7 +143,7 @@ function Remote() {
   const flipCamera = async () => {
     if (ingestionRef.current) {
       await ingestionRef.current.flipCamera();
-      setSelectedCamera(''); // Clear active device selection to show it uses facingMode
+      setSelectedCamera(''); 
     }
   };
 
@@ -125,10 +152,8 @@ function Remote() {
     if (ingestionRef.current) ingestionRef.current.destroy();
     setIsJoined(false);
     setStreamActive(false);
-    setJoinStatus('');
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
@@ -137,23 +162,23 @@ function Remote() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-950 font-sans p-6 text-center select-none touch-none">
+    <div className="flex flex-col items-center justify-center min-h-screen font-sans p-6 text-center select-none touch-none">
       
       {/* ── JOIN SCREEN ──────────────────────────────────────────────────────── */}
       {!isJoined && (
         <div className="max-w-xs w-full flex flex-col gap-6 items-center animate-in">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-pink-500 to-violet-400 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
               Phuebus
             </h1>
-            <span className="text-[10px] font-bold tracking-widest text-zinc-500 uppercase mt-1 block">
+            <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase mt-1 block">
               Mobile Remote
             </span>
           </div>
 
           <div className="w-full flex flex-col gap-4 text-left">
             <div>
-              <label htmlFor="code" className="text-xs font-semibold text-zinc-500 uppercase tracking-wide block mb-1">
+              <label htmlFor="code" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
                 Session Code
               </label>
               <Input
@@ -162,47 +187,58 @@ function Remote() {
                 maxLength={4}
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, ''))}
-                className="w-full font-mono text-xl tracking-widest uppercase border-zinc-800 focus-within:border-pink-500 text-center"
+                className="w-full font-mono text-xl tracking-widest uppercase border-border text-center"
               />
             </div>
             
             <Button
-              className="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold h-12 rounded-2xl shadow-lg glow-pink mt-2"
+              variant="primary"
+              className="w-full font-bold h-12 rounded-2xl mt-2"
               onPress={joinSession}
             >
               Join Session
             </Button>
           </div>
 
-          {joinStatus && <p className="text-xs text-red-400 font-medium">{joinStatus}</p>}
+          {joinStatus && <p className="text-xs text-danger font-medium">{joinStatus}</p>}
+
+          {/* On-screen logs for on-device troubleshooting */}
+          {logs.length > 0 && (
+            <div className="w-full text-left bg-muted border border-border rounded-xl p-3 text-[10px] font-mono text-muted-foreground mt-4 select-text max-h-36 overflow-y-auto">
+              <div className="font-bold text-[9px] uppercase tracking-wider text-foreground mb-1">Debug Output</div>
+              {logs.map((log, i) => (
+                <div key={i} className="whitespace-pre-wrap leading-tight">{log}</div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* ── MAIN REMOTE CONTROL SURFACE ───────────────────────────────────────── */}
       {isJoined && (
-        <div className="flex flex-col w-full h-screen absolute inset-0 bg-zinc-950 animate-in">
+        <div className="flex flex-col w-full h-screen absolute inset-0 bg-background animate-in">
           
           {/* Status bar */}
-          <div className="flex items-center justify-between p-3.5 bg-zinc-900 border-b border-zinc-800/80 text-xs text-zinc-400">
+          <div className="flex items-center justify-between p-3.5 bg-muted border-b border-border text-xs text-muted-foreground">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <span className={`w-2.5 h-2.5 rounded-full ${isSocketConnected ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                <span className={`w-2.5 h-2.5 rounded-full ${isSocketConnected ? 'bg-success' : 'bg-danger'}`} />
                 <span>Socket</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className={`w-2.5 h-2.5 rounded-full ${peerStatus === 'connected' ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                <span className={`w-2.5 h-2.5 rounded-full ${peerStatus === 'connected' ? 'bg-success' : 'bg-muted-foreground'}`} />
                 <span>Peer</span>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-zinc-500">Code:</span>
-              <span className="font-mono text-pink-400 font-extrabold tracking-wider">{roomCode}</span>
+              <span className="font-semibold text-muted-foreground">Code:</span>
+              <span className="font-mono text-primary font-extrabold tracking-wider">{roomCode}</span>
             </div>
           </div>
 
           {/* Camera preview window */}
-          <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden m-4 rounded-3xl border border-zinc-800">
+          <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden m-4 rounded-3xl border border-border">
             <video
               ref={videoPreviewRef}
               muted
@@ -211,7 +247,7 @@ function Remote() {
             />
 
             {!streamActive && (
-              <div className="flex flex-col items-center gap-2 text-zinc-600">
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <VideoOff className="size-8" />
                 <span className="text-xs tracking-wider uppercase font-semibold">No Camera Stream</span>
               </div>
@@ -232,17 +268,17 @@ function Remote() {
           </div>
 
           {/* Bottom control panel */}
-          <Card className="mx-4 mb-4 bg-zinc-900 border-zinc-800/80 rounded-3xl p-5 flex flex-col gap-4">
+          <Card className="mx-4 mb-4 rounded-3xl p-5 flex flex-col gap-4">
             
             {/* Camera switcher */}
             <div className="flex flex-col gap-1.5 text-left">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1">
                 Select Camera Source
               </label>
               <select
                 value={selectedCamera}
                 onChange={handleCameraChange}
-                className="bg-zinc-950 border border-zinc-800 text-zinc-200 text-xs rounded-xl px-3 py-2.5 outline-none focus:border-pink-500 cursor-pointer w-full"
+                className="bg-background border border-border text-foreground text-xs rounded-xl px-3 py-2.5 outline-none focus:border-primary cursor-pointer w-full"
               >
                 <option value="">⚙️ Auto Camera ({ingestionRef.current?.facingMode} mode)</option>
                 {cameras.map((device) => (
@@ -254,15 +290,15 @@ function Remote() {
             </div>
 
             {/* Status Info */}
-            <div className="flex items-center justify-between py-2 border-t border-zinc-800 text-[11px] text-zinc-500">
+            <div className="flex items-center justify-between py-2 border-t border-border text-[11px] text-muted-foreground">
               <div className="flex items-center gap-1">
-                <Smartphone className="size-3.5 text-zinc-400" />
+                <Smartphone className="size-3.5" />
                 <span>PHASE 1 ACTIVE</span>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
-                className="border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 rounded-xl"
+                className="rounded-xl"
                 onPress={leaveSession}
               >
                 <LogOut className="size-3.5 mr-1" />
