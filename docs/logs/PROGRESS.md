@@ -48,7 +48,7 @@
 | P1-1 | Server scaffold (Express + Socket.IO + PeerServer) | ✅ Done | `d470590` | Express HTML routes extension, websocket-only transports, embedded PeerJS |
 | P1-2 | Video ingestion (UVC + WebRTC) | ✅ Done | `cb57ac5` | PeerJS WebRTC stream + local UVC switcher + React preview |
 | P1-3 | Three.js shader engine foundation | ✅ Done | `17f39df` | Three.js WebGL2 pipeline with 1x1 RenderTarget luma downsampling & adaptive auto-gain pre-pass |
-| P1-4 | Shader pack (Toon + Trails + Neon) | ⬜ Pending | — | Depends on P1-3 |
+| P1-4 | Shader pack (Toon + Trails + Neon) | ✅ Done | `0af9d5c` | Complete shader pack including Sobel toon contours, ping-pong feedback trails, and skeletal NeonAura |
 | P1-5 | Audio reactivity engine | ⬜ Pending | — | Depends on P1-3 |
 | P1-6 | Pose tracker (MediaPipe) | ⬜ Pending | — | Depends on P1-4 |
 | P1-7 | Engine router + preset system | ⬜ Pending | — | Depends on P1-3,4,5,6 |
@@ -141,3 +141,4 @@
 | 2026-08-03 | Debugged iOS Local Network websocket connectivity, enabled HTTPS SSL certs, enforced default HeroUI styling, integrated Vitest + coverage | Agent (P-006) |
 | 2026-08-03 | Implemented Three.js ShaderEngine, AutoGainPrepass GLSL (luma downsampling, adaptive gain), fullscreen passthrough vert, and unit tests | Agent (P-007) |
 | 2026-08-03 | Added left/right collapsible tuning panels (HeroUI select/slider/switch), WebGL antialias/resolution/DPR settings, orientation auto-correction, and remote fullscreen view | Agent (P-008) |
+| 2026-08-03 | Implemented Toon, Trails, and Neon GLSL shaders, multi-pass active/feedback target loops, and dynamic controls with CPU joint simulator | Agent (P-009) |
