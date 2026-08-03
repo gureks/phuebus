@@ -12,7 +12,7 @@
 | Phase | Prompts | Done | In Progress | Pending | Completion |
 |---|---|---|---|---|---|
 | Planning | — | ✅ | — | — | **100%** |
-| Phase 1 | 10 | 2 | 0 | 8 | **20%** |
+| Phase 1 | 10 | 3 | 0 | 7 | **30%** |
 | Phase 2 | 6 | 0 | 0 | 6 | **0%** |
 | Phase 3 | 5 | 0 | 0 | 5 | **0%** |
 
@@ -47,7 +47,7 @@
 |---|---|---|---|---|
 | P1-1 | Server scaffold (Express + Socket.IO + PeerServer) | ✅ Done | `d470590` | Express HTML routes extension, websocket-only transports, embedded PeerJS |
 | P1-2 | Video ingestion (UVC + WebRTC) | ✅ Done | `cb57ac5` | PeerJS WebRTC stream + local UVC switcher + React preview |
-| P1-3 | Three.js shader engine foundation | ⬜ Pending | — | Depends on P1-2 |
+| P1-3 | Three.js shader engine foundation | ✅ Done | `ecc8e85` | Three.js WebGL2 pipeline with 1x1 RenderTarget luma downsampling & adaptive auto-gain pre-pass |
 | P1-4 | Shader pack (Toon + Trails + Neon) | ⬜ Pending | — | Depends on P1-3 |
 | P1-5 | Audio reactivity engine | ⬜ Pending | — | Depends on P1-3 |
 | P1-6 | Pose tracker (MediaPipe) | ⬜ Pending | — | Depends on P1-4 |
@@ -61,9 +61,9 @@
 | Criterion | Status |
 |---|---|
 | Sub-30ms end-to-end latency on LAN | ⬜ |
-| WebRTC mobile stream → display working | ⬜ |
-| UVC/USB camera selection working | ⬜ |
-| Auto-gain pre-pass active by default | ⬜ |
+| WebRTC mobile stream → display working | ✅ |
+| UVC/USB camera selection working | ✅ |
+| Auto-gain pre-pass active by default | ✅ |
 | All 3 shaders functional (Toon, Trails, Neon) | ⬜ |
 | Audio FFT device routing functional | ⬜ |
 | Pose tracking skeleton overlay functional | ⬜ |

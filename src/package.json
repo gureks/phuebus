@@ -32,7 +32,8 @@
     "react-router-dom": "^7.1.0",
     "selfsigned": "^5.5.0",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

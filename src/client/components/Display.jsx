@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import VideoIngestion from '../engine/VideoIngestion';
+import { ShaderEngine } from '../engine/ShaderEngine';
 import { Card, Button, Spinner } from '@heroui/react';
 import { Monitor, Camera, Wifi, Settings, LogOut, VideoOff } from 'lucide-react';
 
@@ -22,6 +23,7 @@ function Display() {
 
   const socketRef = useRef(null);
   const ingestionRef = useRef(null);
+  const engineRef = useRef(null);
   
   const renderCanvasRef = useRef(null);
   const monitorVideoRef = useRef(null); // Ref for raw camera stream monitoring preview
@@ -43,6 +45,20 @@ function Display() {
       setIsSocketConnected(false);
     });
 
+    // Initialize ShaderEngine
+    const engine = new ShaderEngine(
+      renderCanvasRef.current,
+      hiddenVideoRef.current,
+      {
+        fpsCap: 60,
+        onFpsUpdate: (fpsVal) => {
+          setFps(fpsVal);
+        }
+      }
+    );
+    engineRef.current = engine;
+    engine.pause(); // Wait for the stream to become active before starting the render loop
+
     // Initialize VideoIngestion
     const ingestion = new VideoIngestion(
       socket,
@@ -60,6 +76,11 @@ function Display() {
           hiddenVideoRef.current.play().catch(e => console.warn(e));
         }
         setCameraStatus('live');
+        
+        // Start rendering if mode matches
+        if (engineRef.current && engineMode === 'shader') {
+          engineRef.current.resume();
+        }
       },
       (devices) => {
         setAvailableCameras(devices);
@@ -77,36 +98,34 @@ function Display() {
     socket.on('preset_change', (d) => console.log('[Display] preset_change:', d));
     socket.on('slider_update', (d) => console.log('[Display] slider_update:', d));
     socket.on('engine_switch', (d) => {
-      setEngineMode(d.mode ?? 'shader');
+      const mode = d.mode ?? 'shader';
+      setEngineMode(mode);
+      if (engineRef.current) {
+        if (mode === 'shader') {
+          engineRef.current.resume();
+        } else {
+          engineRef.current.pause();
+        }
+      }
     });
     socket.on('prompt_update', (d) => console.log('[Display] prompt_update:', d));
     socket.on('audio_source_change', (d) => console.log('[Display] audio_source:', d));
-    socket.on('fps_cap_change', (d) => console.log('[Display] fps_cap:', d));
-
-    // Simulate simple FPS counter (actual FPS counter is hooked into Three.js in Prompt 3)
-    let lastTime = performance.now();
-    let frameCount = 0;
-    let animId;
-
-    const fpsLoop = () => {
-      frameCount++;
-      const now = performance.now();
-      if (now - lastTime >= 1000) {
-        setFps(frameCount);
-        frameCount = 0;
-        lastTime = now;
+    socket.on('fps_cap_change', (d) => {
+      console.log('[Display] fps_cap:', d);
+      if (engineRef.current && d.fps) {
+        engineRef.current.setFpsCap(d.fps);
       }
-      animId = requestAnimationFrame(fpsLoop);
-    };
-    fpsLoop();
+    });
 
     // Clean up
     return () => {
-      cancelAnimationFrame(animId);
       socket.disconnect();
       ingestion.destroy();
+      if (engineRef.current) {
+        engineRef.current.destroy();
+      }
     };
-  }, [roomCode]);
+  }, [roomCode, engineMode]);
 
   // Handle local UVC camera selection
   const handleCameraChange = async (e) => {
@@ -117,6 +136,9 @@ function Display() {
       if (monitorVideoRef.current) monitorVideoRef.current.srcObject = null;
       if (hiddenVideoRef.current) hiddenVideoRef.current.srcObject = null;
       ingestionRef.current.stopLocalStream();
+      if (engineRef.current) {
+        engineRef.current.pause();
+      }
     } else if (deviceId) {
       setCameraStatus('loading');
       try {

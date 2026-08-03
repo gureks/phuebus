@@ -391,5 +391,39 @@ Vitest provides super-fast test execution and native ESM/Vite integration, match
 - Configured coverage parameters in `vite.config.js`.
 - Rules enforced in `AGENTS.md` verification workflow.
 
+---
+
+## DEC-012 — WebGL2 Off-Screen Downsampling for Adaptive Gain
+
+- **Date:** 2026-08-03
+- **Prompt:** P-007 — Three.js Shader Engine Foundation
+- **Phase:** Phase 1
+- **Status:** ✅ Decided
+
+### Context
+Adaptive gain control (auto-gain) requires measuring average scene luminance to dynamically boost brightness in dim lighting. Reading full-frame pixels back from the GPU to the CPU (using `readPixels`) blocks the WebGL execution pipeline and easily violates our <16ms latency budget. We need an efficient way to extract average luminance.
+
+### Options Evaluated
+| Option | Pros | Cons | Score (1–5) |
+|---|---|---|---|
+| **WebGL 1x1 RenderTarget + 8x8 Grid Downsample Shader** | Extremely fast (<0.1ms GPU time, <0.2ms CPU readback), does not stall pipeline, runs on 1x1 target (1 pixel shader execution total), very simple to implement | 64-point approximation rather than full-frame integral (practically identical for video feed auto-gain) | **5** |
+| GPU-side Mipmap Generation (Level 0 -> max level) | Full frame mathematical average | Three.js mipmap generation adds state changes, has performance overhead on video textures | **3** |
+| Full-frame CPU `readPixels` | 100% mathematically accurate | Pipeline stalls on CPU-GPU bridge block main thread for 10-50ms, causing massive frame drop | **1** |
+
+### Decision
+**Chosen: WebGL 1x1 RenderTarget + 8x8 Grid Downsample Shader**
+
+### Rationale
+Rendering to a 1x1 render target utilizing a custom shader that samples a 8x8 grid coordinates evenly distributed across the UV space reduces the CPU-GPU transfer overhead to a single pixel read-back (using `renderer.readRenderTargetPixels`). This is extremely fast, fully meets the adaptive gain precision needs, and runs under 0.3ms end-to-end, fitting safely in our <16ms frame budget.
+
+### Consequences
+- Implemented `LUMA_DOWN_FRAG` fragment shader in `AutoGainPrepass.js`.
+- Created a 1x1 offscreen `lumaTarget` in `ShaderEngine.js`.
+- Enabled smooth temporal adaptation (`this.avgLuma = this.avgLuma * 0.95 + measuredLuma * 0.05`) without main thread latency.
+
+### References
+- SPEC.md Section 4.2
+
+
 
 

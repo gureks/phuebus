@@ -8,27 +8,27 @@
 
 ## Pre-conditions Before Starting
 
-- [ ] Node.js 20 LTS installed
-- [ ] Chrome / Chromium latest (WebGL2 + WebRTC)
-- [ ] macOS (primary dev target — UVC native support)
-- [ ] Git repo initialized at `/phuebus`
-- [ ] SPEC.md reviewed and understood
+- [x] Node.js 20 LTS installed
+- [x] Chrome / Chromium latest (WebGL2 + WebRTC)
+- [x] macOS (primary dev target — UVC native support)
+- [x] Git repo initialized at `/phuebus`
+- [x] SPEC.md reviewed and understood
 
 ---
 
 ## Prompt 1 — Project Scaffold & Server Foundation
 
 ### Research
-- [ ] Confirm Express 5 vs Express 4 differences for `serve-static` and `http.createServer` integration
-- [ ] Confirm Socket.IO v4 `transports: ['websocket']` eliminates polling correctly
-- [ ] Confirm PeerServer embedding pattern (ExpressPeerServer vs standalone peer server)
+- [x] Confirm Express 5 vs Express 4 differences for `serve-static` and `http.createServer` integration
+- [x] Confirm Socket.IO v4 `transports: ['websocket']` eliminates polling correctly
+- [x] Confirm PeerServer embedding pattern (ExpressPeerServer vs standalone peer server)
 
 ### Plan
-- [ ] Create `package.json` with all Phase 1 dependencies (three, socket.io, peer, express)
-- [ ] Create `server.js`: Express static server + Socket.IO signaling + PeerServer relay
-- [ ] Create room code generation utility (4-char alphanumeric)
-- [ ] Wire all 6 control events: `preset_change`, `slider_update`, `engine_switch`, `prompt_update`, `audio_source_change`, `fps_cap_change`
-- [ ] Create `public/index.html` landing page with mode switcher (Display / Remote links)
+- [x] Create `package.json` with all Phase 1 dependencies (three, socket.io, peer, express)
+- [x] Create `server.js`: Express static server + Socket.IO signaling + PeerServer relay
+- [x] Create room code generation utility (4-char alphanumeric)
+- [x] Wire all 6 control events: `preset_change`, `slider_update`, `engine_switch`, `prompt_update`, `audio_source_change`, `fps_cap_change`
+- [x] Create `public/index.html` landing page with mode switcher (Display / Remote links)
 
 ### Ask Before Writing
 - WebSocket port: default `3000` or configurable via `.env`?
@@ -36,10 +36,10 @@
 - PeerServer: embedded in same process or separate port?
 
 ### Verify
-- [ ] `npm start` serves `localhost:3000`
-- [ ] `/display` and `/remote` load without errors
-- [ ] Socket.IO connection confirmed in browser DevTools Network tab (WebSocket frame)
-- [ ] PeerServer responds at `/peerjs`
+- [x] `npm start` serves `localhost:3000`
+- [x] `/display` and `/remote` load without errors
+- [x] Socket.IO connection confirmed in browser DevTools Network tab (WebSocket frame)
+- [x] PeerServer responds at `/peerjs`
 
 ### Commit Message
 ```
@@ -51,16 +51,16 @@ feat(server): scaffold Express + Socket.IO + PeerServer foundation
 ## Prompt 2 — Video Ingestion (UVC + WebRTC)
 
 ### Research
-- [ ] Verify `navigator.mediaDevices.enumerateDevices()` returns UVC capture cards on macOS Chrome
-- [ ] Confirm PeerJS `call.answer()` without local stream on the display side works correctly
-- [ ] Check `videoElement.srcObject` hot-swap (switching from WebRTC to UVC without page reload)
+- [x] Verify `navigator.mediaDevices.enumerateDevices()` returns UVC capture cards on macOS Chrome
+- [x] Confirm PeerJS `call.answer()` without local stream on the display side works correctly
+- [x] Check `videoElement.srcObject` hot-swap (switching from WebRTC to UVC without page reload)
 
 ### Plan
-- [ ] `VideoIngestion.js`: `enumerateDevices()`, `openCamera(deviceId)`, `startWebRTCReceiver()`
-- [ ] PeerJS: display registers as receiver, remote calls with camera stream
-- [ ] `remote.js`: camera switcher UI (front/back/environment facing mode)
-- [ ] `display.js`: populate device selector dropdown from enumerated UVC devices
-- [ ] Socket.IO: relay remote's PeerJS peer ID to display via `register_peer` event
+- [x] `VideoIngestion.js`: `enumerateDevices()`, `openCamera(deviceId)`, `startWebRTCReceiver()`
+- [x] PeerJS: display registers as receiver, remote calls with camera stream
+- [x] `remote.js`: camera switcher UI (front/back/environment facing mode)
+- [x] `display.js`: populate device selector dropdown from enumerated UVC devices
+- [x] Socket.IO: relay remote's PeerJS peer ID to display via `register_peer` event
 
 ### Ask Before Writing
 - Should the mobile remote support switching between front and back camera mid-session?
@@ -68,10 +68,10 @@ feat(server): scaffold Express + Socket.IO + PeerServer foundation
 - Multiple simultaneous WebRTC streams (Phase 1 scope or defer to Phase 2)?
 
 ### Verify
-- [ ] iPhone navigates to `/remote`, camera starts streaming
-- [ ] Display at `/display` receives WebRTC stream in `<video>` element
-- [ ] USB UVC capture card (or built-in webcam) appears in device selector on display page
-- [ ] Switching between WebRTC and UVC sources without refresh
+- [x] iPhone navigates to `/remote`, camera starts streaming
+- [x] Display at `/display` receives WebRTC stream in `<video>` element
+- [x] USB UVC capture card (or built-in webcam) appears in device selector on display page
+- [x] Switching between WebRTC and UVC sources without refresh
 
 ### Commit Message
 ```

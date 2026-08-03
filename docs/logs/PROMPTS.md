@@ -245,4 +245,31 @@
 - Enforced main module check on server startup to allow clean testing imports without port binding conflicts.
 - Built-in Vitest coverage report shows all tests passing successfully.
 
+---
+
+## P-007 — Three.js Shader Engine Foundation
+
+- **Date:** 2026-08-03 22:05 (IST)
+- **Phase:** Phase 1
+- **Type:** Feature
+
+### Prompt (verbatim)
+> Move to working on Prompt 3 — Three.js Shader Engine Foundation as defined in docs/plan/PHASE1.md
+> 
+> Mark progress as verified and success so far.
+
+### Decisions Triggered
+- [DEC-012] WebGL2 Off-Screen Downsampling for Adaptive Gain — 1x1 RenderTarget grid sampling for zero-latency CPU luma read-back.
+
+### Outputs Produced
+- `src/client/engine/shaders/fullscreen.vert.js` — Passthrough vertex shader.
+- `src/client/engine/shaders/AutoGainPrepass.js` — Luma downsampling and auto-gain fragment shaders.
+- `src/client/engine/ShaderEngine.js` — Core WebGL2 post-processing post-processing manager.
+- `src/client/engine/ShaderEngine.test.js` — Mock-based Vitest unit tests (90%+ coverage).
+- `src/client/components/Display.jsx` — Updated to integrate ShaderEngine with room events.
+
+### Notes
+- Discovered and fixed a floating-point modulo rounding bug in `ShaderEngine.js`'s FPS gating loop: JavaScript's double-precision remainder operation of `1000 % 33.333333333333336` resulted in a non-zero value matching `33.333333333333336` (instead of `0`). Solved by adding a safety epsilon tolerance check before subtracting the excess duration.
+
+
 
