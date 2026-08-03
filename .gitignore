@@ -1,0 +1,47 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build outputs
+dist/
+build/
+out/
+
+# Tauri (Phase 3)
+src-tauri/target/
+
+# Python sidecar (Phase 2)
+ai_engine/__pycache__/
+ai_engine/.venv/
+ai_engine/*.pyc
+ai_engine/models/
+
+# Recordings / output
+*.webm
+*.mp4
+recordings/
+
+# Logs
+*.log

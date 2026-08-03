@@ -8,10 +8,25 @@
 ## Mandatory Workflow: Every Prompt
 
 ```
-RESEARCH → PLAN → ASK → CODE → VERIFY → COMMIT → PUSH
+LOG → RESEARCH → PLAN → ASK → CODE → VERIFY → COMMIT → PUSH
 ```
 
-The agent must complete all 7 stages in order. No stage may be skipped.
+The agent must complete all 8 stages in order. No stage may be skipped.
+
+---
+
+## Stage 0: LOG
+
+At the **very start** of processing any prompt, before any other action:
+
+1. Open `docs/logs/PROMPTS.md` and append a new `P-NNN` entry with:
+   - Date + time (IST)
+   - Phase and type
+   - The verbatim prompt text
+   - *(Outputs and Decisions Triggered filled in at end of work)*
+2. The entry is created **now** even if incomplete — it will be filled as work progresses.
+
+> This log is the project's memory. Missing entries are a hard violation.
 
 ---
 
@@ -19,14 +34,57 @@ The agent must complete all 7 stages in order. No stage may be skipped.
 
 Before writing a single line of code, the agent MUST:
 
-1. **Check SPEC.md** — Review the relevant section(s) for the task (framework references, module contracts, performance targets).
-2. **Check the PLAN file** for the current phase (PLAN_PHASE1.md, PLAN_PHASE2.md, PLAN_PHASE3.md) — find the exact prompt being worked on and read its Research section.
-3. **Use Context7 MCP** (`resolve-library-id` + `query-docs`) to fetch the latest API docs for any library involved. Do not rely on training data alone — library APIs evolve.
-4. **Search the web** (`search_web`) if any of the following are true:
+### 1.1 — Read Existing Context
+1. **Check SPEC.md** — Review the relevant section(s) for the task (framework refs, module contracts, perf targets).
+2. **Check the PLAN file** for the current phase — find the exact prompt and read its Research checklist.
+3. **Read existing source files** before modifying them — never assume file contents.
+
+### 1.2 — Fetch Latest API Docs
+4. **Use Context7 MCP** (`resolve-library-id` → `query-docs`) to fetch current API docs for every library involved.  
+   Do NOT rely on training data alone — library APIs change between versions.
+5. **Search the web** (`search_web`) if ANY of the following are true:
    - The task involves hardware interaction (UVC, WebRTC, audio devices)
-   - The task involves a library not in Context7
+   - The library is not found in Context7
    - The task involves a "best practice" that may have changed since training
-5. **Read existing source files** before modifying them — never assume file contents.
+   - The library version in SPEC.md differs from the latest stable release
+
+### 1.3 — Alternatives Evaluation (MANDATORY when a framework/tool choice exists)
+
+When a prompt introduces a new library, framework, API, or methodology for which alternatives exist, the agent MUST:
+
+**a) Identify at least 3 alternatives** (including the currently specced choice in SPEC.md)
+
+**b) Score each on the standard 4-dimension rubric:**
+
+| Dimension | What it measures |
+|---|---|
+| **Fit** | How precisely it solves the stated technical requirement |
+| **Perf** | Runtime performance: latency, throughput, CPU/GPU overhead |
+| **DX** | API ergonomics, documentation quality, community size |
+| **Phase Fit** | Suitability across all 3 phases without requiring a rewrite |
+
+**c) Fill out an Alternatives Scoring Table:**
+
+```
+| Alternative | Fit | Perf | DX | Phase Fit | Total | Notes |
+|---|---|---|---|---|---|---|
+| Option A ✅ | 5 | 4 | 5 | 5 | 19 | [key reason] |
+| Option B    | 3 | 5 | 3 | 2 | 13 | [key trade-off] |
+| Option C    | 2 | 4 | 4 | 3 | 13 | [why rejected] |
+```
+
+**d) Append the table to `docs/research/FRAMEWORKS.md`** with a section heading for the decision.
+
+**e) If the research reveals a better alternative than what SPEC.md specifies:**
+- Surface it in Stage 3 (ASK) — do NOT silently switch
+- Present the scoring table as evidence
+- Wait for user decision before writing any code
+
+### 1.4 — Research Output
+After research, briefly summarize findings in the Stage 2 PLAN output:
+- What was confirmed from documentation
+- What changed vs training data / SPEC.md
+- Which alternatives were evaluated and why the winner was chosen
 
 > Failure to research before coding is a hard violation of these rules.
 
@@ -170,9 +228,18 @@ If the push fails (e.g., remote has diverged):
 - All uniforms must be documented with their type, range, and what they control
 - Default uniform values must produce a visible (non-black) output for easier debugging
 
-### On Documentation
-- After each phase-level prompt (Prompt 10 of Phase 1, etc.), update the Phase PLAN.md to mark completed items
-- SPEC.md is a living document — if implementation diverges from spec, update SPEC.md and note the change
+### On Documentation & Logging
+
+The agent MUST maintain the following log files throughout every session:
+
+| File | When to update | What to add |
+|---|---|---|
+| `docs/logs/PROMPTS.md` | Stage 0 (start of every prompt) | New P-NNN entry with verbatim prompt; fill outputs at end |
+| `docs/logs/DECISIONS.md` | After any Stage 3 answer or research-driven choice | New DEC-NNN entry using the template (context, options table, rationale, consequences) |
+| `docs/logs/PROGRESS.md` | After every Stage 6 COMMIT | Mark prompt row `✅`, fill commit hash, update phase completion % |
+| `docs/research/FRAMEWORKS.md` | During Stage 1 whenever a framework/tool choice is evaluated | Add scored alternatives table for the new decision |
+| Phase PLAN files | After the last prompt of each phase | Mark completed items `[x]` |
+| `SPEC.md` | When implementation diverges from spec | Update the spec and add a `> Note: Changed in P-NNN` callout |
 
 ---
 
