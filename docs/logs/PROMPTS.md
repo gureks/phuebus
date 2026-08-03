@@ -237,8 +237,9 @@
 - `.gitignore` — Ignored coverage directories
 
 ### Notes
-- Enabled fallback polling Socket.IO transport in `server.js` and `Remote.jsx` to increase mobile compatibility.
+- Removed the explicit `transports: ['websocket']` constraint completely on both the backend and client setups. This restores Socket.IO's default polling-to-websocket upgrade protocol, resolving local network security blocks (such as iOS Local Network Privacy) that trigger `websocket error` on mobile connections.
 - Added on-screen log outputs inside `Remote.jsx` to let users see exact client errors on mobile.
 - Enforced main module check on server startup to allow clean testing imports without port binding conflicts.
 - Built-in Vitest coverage report shows all tests passing successfully.
+
 
