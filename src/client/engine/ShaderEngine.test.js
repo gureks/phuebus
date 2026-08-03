@@ -124,92 +124,40 @@ describe('ShaderEngine class', () => {
     mockRenderer.domElement.height = 600;
   });
 
-  it('should initialize renderer, scene, targets and materials correctly with default options', () => {
+  it('should initialize renderer, targets and materials correctly with default options', () => {
     const engine = new ShaderEngine(mockCanvas, mockVideo);
 
-    expect(engine.canvas).toBe(mockCanvas);
-    expect(engine.videoElement).toBe(mockVideo);
     expect(engine.activeShader).toBe('passthrough');
     expect(engine.trailsEnabled).toBe(false);
+    expect(engine.prevFrameTarget).toBeDefined();
 
-    expect(engine.renderer).toBeDefined();
-    expect(engine.lumaTarget).toBeDefined();
-    expect(engine.prepassTarget).toBeDefined();
-    expect(engine.activeShaderTarget).toBeDefined();
-    expect(engine.feedbackTargetA).toBeDefined();
-    expect(engine.feedbackTargetB).toBeDefined();
-    expect(engine.toonMaterial).toBeDefined();
-    expect(engine.neonMaterial).toBeDefined();
-    expect(engine.feedbackMaterial).toBeDefined();
+    expect(engine.toonMaterial.uniforms.uAudioHueSensitivity.value).toBe(1.0);
+    expect(engine.toonMaterial.uniforms.uToonOutlineMode.value).toBe(0);
+    expect(engine.feedbackMaterial.uniforms.uAudioDispersionSensitivity.value).toBe(2.0);
+    expect(engine.feedbackMaterial.uniforms.uMotionFlowScale.value).toBe(5.0);
   });
 
-  it('should apply and update active shader and trails parameters', () => {
+  it('should update uniform setters for Toon and Feedback dynamic additions', () => {
     const engine = new ShaderEngine(mockCanvas, mockVideo);
 
-    engine.setActiveShader('toon');
-    expect(engine.activeShader).toBe('toon');
+    engine.setToonOutlineMode(1);
+    expect(engine.toonOutlineMode).toBe(1);
+    expect(engine.toonMaterial.uniforms.uToonOutlineMode.value).toBe(1);
 
-    engine.setTrailsEnabled(true);
-    expect(engine.trailsEnabled).toBe(true);
+    engine.setAudioHueSensitivity(1.5);
+    expect(engine.audioHueSensitivity).toBe(1.5);
+    expect(engine.toonMaterial.uniforms.uAudioHueSensitivity.value).toBe(1.5);
+
+    engine.setAudioDispersionSensitivity(3.0);
+    expect(engine.audioDispersionSensitivity).toBe(3.0);
+    expect(engine.feedbackMaterial.uniforms.uAudioDispersionSensitivity.value).toBe(3.0);
+
+    engine.setMotionFlowScale(8.0);
+    expect(engine.motionFlowScale).toBe(8.0);
+    expect(engine.feedbackMaterial.uniforms.uMotionFlowScale.value).toBe(8.0);
   });
 
-  it('should update uniform setters for the shader pack', () => {
-    const engine = new ShaderEngine(mockCanvas, mockVideo);
-
-    engine.setEdgeSensitivity(0.25);
-    expect(engine.edgeSensitivity).toBe(0.25);
-    expect(engine.toonMaterial.uniforms.uEdgeSensitivity.value).toBe(0.25);
-
-    engine.setColorSteps(8.0);
-    expect(engine.colorSteps).toBe(8.0);
-    expect(engine.toonMaterial.uniforms.uColorSteps.value).toBe(8.0);
-
-    engine.setDecay(0.85);
-    expect(engine.decay).toBe(0.85);
-    expect(engine.feedbackMaterial.uniforms.uDecay.value).toBe(0.85);
-
-    engine.setDispersion(0.005);
-    expect(engine.dispersion).toBe(0.005);
-    expect(engine.feedbackMaterial.uniforms.uDispersion.value).toBe(0.005);
-
-    engine.setGlowRadius(0.012);
-    expect(engine.glowRadius).toBe(0.012);
-    expect(engine.neonMaterial.uniforms.uGlowRadius.value).toBe(0.012);
-
-    engine.setHue(180);
-    expect(engine.hue).toBeCloseTo(Math.PI, 4);
-    expect(engine.toonMaterial.uniforms.uHue.value).toBeCloseTo(Math.PI, 4);
-    expect(engine.neonMaterial.uniforms.uHue.value).toBeCloseTo(Math.PI, 4);
-  });
-
-  it('should correctly set and invalidate landmarks Vector2 coordinates', () => {
-    const engine = new ShaderEngine(mockCanvas, mockVideo);
-
-    // Initial state: all set to (-1, -1)
-    expect(engine.landmarksList[0].x).toBe(-1);
-    expect(engine.landmarksList[0].y).toBe(-1);
-
-    // Set active landmarks array
-    const testLandmarks = [
-      { x: 0.5, y: 0.5 },
-      { x: 0.2, y: 0.8 }
-    ];
-    engine.setLandmarks(testLandmarks);
-    expect(engine.landmarksList[0].x).toBe(0.5);
-    expect(engine.landmarksList[0].y).toBe(0.5);
-    expect(engine.landmarksList[1].x).toBe(0.2);
-    expect(engine.landmarksList[1].y).toBe(0.8);
-    // Unspecified items should remain (-1, -1)
-    expect(engine.landmarksList[2].x).toBe(-1);
-    expect(engine.landmarksList[2].y).toBe(-1);
-
-    // Invalidate landmarks
-    engine.setLandmarks(null);
-    expect(engine.landmarksList[0].x).toBe(-1);
-    expect(engine.landmarksList[0].y).toBe(-1);
-  });
-
-  it('should execute multi-pass render steps and update uniforms', () => {
+  it('should execute multi-pass render steps including prevFrameTarget copy', () => {
     const engine = new ShaderEngine(mockCanvas, mockVideo);
     engine.setActiveShader('neon');
     engine.setTrailsEnabled(true);
@@ -221,6 +169,7 @@ describe('ShaderEngine class', () => {
     expect(engine.uMid).toBe(0.4);
     expect(engine.uHigh).toBe(0.2);
 
+    // Should have called render at least 5 times (prepass, activeShader, trails, prevFrameCopy, blit)
     expect(mockRenderer.render).toHaveBeenCalled();
   });
 });

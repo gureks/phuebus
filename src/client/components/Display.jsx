@@ -34,15 +34,19 @@ function Display() {
   const [maxGain, setMaxGain] = useState(3.0);
   const [lumaSmoothing, setLumaSmoothing] = useState(0.95);
 
-  // Shader Pack States (Phase 1.4)
+  // Shader Pack States (Phase 1.4 + revised)
   const [activeShader, setActiveShader] = useState('passthrough'); // 'passthrough' | 'toon' | 'neon'
   const [trailsEnabled, setTrailsEnabled] = useState(false);
   const [edgeSensitivity, setEdgeSensitivity] = useState(0.15);
   const [colorSteps, setColorSteps] = useState(5.0);
   const [decay, setDecay] = useState(0.9);
   const [dispersion, setDispersion] = useState(0.002);
-  const [glowRadius, setGlowRadius] = useState(0.005);
+  const [glowRadius, setGlowRadius] = useState(0.08); // Neon Sobel threshold
   const [hue, setHue] = useState(0.0); // 0-360 degrees
+  const [toonOutlineMode, setToonOutlineMode] = useState(0); // 0 = comic black, 1 = neon glow
+  const [audioHueSensitivity, setAudioHueSensitivity] = useState(1.0);
+  const [audioDispersionSensitivity, setAudioDispersionSensitivity] = useState(2.0);
+  const [motionFlowScale, setMotionFlowScale] = useState(5.0);
   
   // UI controls
   const [sidebarsOpen, setSidebarsOpen] = useState(true);
@@ -150,6 +154,10 @@ function Display() {
         dispersion: dispersion,
         glowRadius: glowRadius,
         hue: hue,
+        toonOutlineMode: toonOutlineMode,
+        audioHueSensitivity: audioHueSensitivity,
+        audioDispersionSensitivity: audioDispersionSensitivity,
+        motionFlowScale: motionFlowScale,
 
         onFpsUpdate: (fpsVal) => {
           setFps(fpsVal);
@@ -228,81 +236,39 @@ function Display() {
     }
   }, [engineMode, cameraStatus]);
 
-  // Hook 4: CPU dancing skeleton joint simulator (runs when Neon mode is active, pending MediaPipe tracker)
+  // Hook 4: Simulated audio energy (stub for Phase 1.5 real AudioAnalyzer)
+  // Drives uBass/uMid to test audio-reactive uniforms without mic access
   useEffect(() => {
     let animId = null;
-
-    const simulateLandmarks = (timestamp) => {
-      if (!engineRef.current) {
-        animId = requestAnimationFrame(simulateLandmarks);
-        return;
-      }
-
-      const time = timestamp * 0.001;
-      const landmarks = Array.from({ length: 33 }, () => ({ x: -1, y: -1 }));
-
-      // Center spine/hips area swaying side to side
-      const hipX = 0.5 + Math.sin(time * 1.8) * 0.06;
-      const hipY = 0.58 + Math.cos(time * 2.2) * 0.03;
-
-      // Hips (23: L Hip, 24: R Hip)
-      landmarks[23] = { x: hipX - 0.06, y: hipY };
-      landmarks[24] = { x: hipX + 0.06, y: hipY };
-
-      // Shoulders (11: L Shoulder, 12: R Shoulder)
-      const shoulderX = 0.5 - Math.sin(time * 1.8) * 0.03;
-      const shoulderY = 0.38 + Math.sin(time * 2.6) * 0.015;
-      landmarks[11] = { x: shoulderX - 0.1, y: shoulderY };
-      landmarks[12] = { x: shoulderX + 0.1, y: shoulderY };
-
-      // Elbows (13: L Elbow, 14: R Elbow)
-      landmarks[13] = { x: shoulderX - 0.18, y: shoulderY + 0.06 + Math.sin(time * 3.2) * 0.04 };
-      landmarks[14] = { x: shoulderX + 0.18, y: shoulderY + 0.06 + Math.cos(time * 3.2) * 0.04 };
-
-      // Wrists (15: L Wrist, 16: R Wrist) - waving circular paths
-      landmarks[15] = { 
-        x: landmarks[13].x + Math.sin(time * 4.5) * 0.06, 
-        y: landmarks[13].y + Math.cos(time * 4.5) * 0.06 
-      };
-      landmarks[16] = { 
-        x: landmarks[14].x + Math.cos(time * 4.5) * 0.06, 
-        y: landmarks[14].y + Math.sin(time * 4.5) * 0.06 
-      };
-
-      // Knees (25: L Knee, 26: R Knee) - stepping motion
-      landmarks[25] = { x: landmarks[23].x - 0.02, y: hipY + 0.14 + Math.sin(time * 2.2) * 0.03 };
-      landmarks[26] = { x: landmarks[24].x + 0.02, y: hipY + 0.14 - Math.sin(time * 2.2) * 0.03 };
-
-      // Ankles (27: L Ankle, 28: R Ankle)
-      landmarks[27] = { x: landmarks[25].x - 0.01 + Math.sin(time * 2.2) * 0.01, y: hipY + 0.28 };
-      landmarks[28] = { x: landmarks[26].x + 0.01 - Math.sin(time * 2.2) * 0.01, y: hipY + 0.28 };
-
-      // Face/Nose marker (0)
-      landmarks[0] = { x: shoulderX, y: shoulderY - 0.09 };
-
-      engineRef.current.setLandmarks(landmarks);
-
-      // Simulate live audio beats in the absence of audio tracker
-      const bassVal = 0.3 + Math.max(0, Math.sin(time * 4.5)) * 0.7;
-      const midVal = 0.2 + Math.max(0, Math.sin(time * 7.0)) * 0.5;
-      engineRef.current.setAudioData(bassVal, midVal, 0.0);
-
-      animId = requestAnimationFrame(simulateLandmarks);
-    };
-
-    if (activeShader === 'neon') {
-      animId = requestAnimationFrame(simulateLandmarks);
-    } else {
+    const tick = (timestamp) => {
       if (engineRef.current) {
-        engineRef.current.setLandmarks(null);
-        engineRef.current.setAudioData(0.0, 0.0, 0.0);
+        const t = timestamp * 0.001;
+        const bassVal = 0.3 + Math.max(0, Math.sin(t * 4.5)) * 0.7;
+        const midVal  = 0.2 + Math.max(0, Math.sin(t * 7.0)) * 0.5;
+        engineRef.current.setAudioData(bassVal, midVal, 0.0);
       }
-    }
-
-    return () => {
-      if (animId) cancelAnimationFrame(animId);
+      animId = requestAnimationFrame(tick);
     };
-  }, [activeShader]);
+    animId = requestAnimationFrame(tick);
+    return () => { if (animId) cancelAnimationFrame(animId); };
+  }, []);
+
+  // Hook 5: Propagate new revised shader params
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setToonOutlineMode(toonOutlineMode);
+  }, [toonOutlineMode]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setAudioHueSensitivity(audioHueSensitivity);
+  }, [audioHueSensitivity]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setAudioDispersionSensitivity(audioDispersionSensitivity);
+  }, [audioDispersionSensitivity]);
+
+  useEffect(() => {
+    if (engineRef.current) engineRef.current.setMotionFlowScale(motionFlowScale);
+  }, [motionFlowScale]);
 
   // Handle local camera selection via HeroUI Select
   const handleCameraChangeDirect = async (deviceId) => {
@@ -657,6 +623,23 @@ function Display() {
             {/* Conditional Toon shader settings */}
             {activeShader === 'toon' && (
               <div className="space-y-3 border-t border-zinc-800 pt-3">
+                {/* Outline style toggle */}
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-[11px] text-zinc-300 font-medium">Neon Outlines</span>
+                  <Switch
+                    isSelected={toonOutlineMode === 1}
+                    onChange={(v) => setToonOutlineMode(v ? 1 : 0)}
+                    size="sm"
+                  >
+                    <Switch.Content>
+                      <Switch.Control>
+                        <Switch.Thumb />
+                      </Switch.Control>
+                    </Switch.Content>
+                  </Switch>
+                </div>
+                <p className="text-[9px] text-zinc-500 -mt-1">{toonOutlineMode === 0 ? 'Comic black multiply outlines' : 'Glowing neon coloured outlines'}</p>
+
                 <Slider
                   minValue={0.02}
                   maxValue={0.4}
@@ -688,6 +671,22 @@ function Display() {
                     <Slider.Thumb className="bg-primary" />
                   </Slider.Track>
                 </Slider>
+
+                <Slider
+                  minValue={0.0}
+                  maxValue={3.0}
+                  step={0.1}
+                  value={audioHueSensitivity}
+                  onChange={setAudioHueSensitivity}
+                  className="w-full"
+                >
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Audio Hue Sensitivity</Label>
+                  <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                  <Slider.Track className="bg-zinc-800">
+                    <Slider.Fill className="bg-primary" />
+                    <Slider.Thumb className="bg-primary" />
+                  </Slider.Track>
+                </Slider>
               </div>
             )}
 
@@ -695,14 +694,14 @@ function Display() {
             {activeShader === 'neon' && (
               <div className="space-y-3 border-t border-zinc-800 pt-3">
                 <Slider
-                  minValue={0.001}
-                  maxValue={0.015}
-                  step={0.0005}
+                  minValue={0.02}
+                  maxValue={0.4}
+                  step={0.01}
                   value={glowRadius}
                   onChange={setGlowRadius}
                   className="w-full"
                 >
-                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Neon Glow Radius</Label>
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Edge Threshold (Neon)</Label>
                   <Slider.Output className="text-xs text-zinc-400 font-mono" />
                   <Slider.Track className="bg-zinc-800">
                     <Slider.Fill className="bg-primary" />
@@ -761,6 +760,38 @@ function Display() {
                   className="w-full"
                 >
                   <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Smoke Dispersion</Label>
+                  <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                  <Slider.Track className="bg-zinc-800">
+                    <Slider.Fill className="bg-primary" />
+                    <Slider.Thumb className="bg-primary" />
+                  </Slider.Track>
+                </Slider>
+
+                <Slider
+                  minValue={0.0}
+                  maxValue={5.0}
+                  step={0.1}
+                  value={audioDispersionSensitivity}
+                  onChange={setAudioDispersionSensitivity}
+                  className="w-full"
+                >
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Bass Kick Dispersion</Label>
+                  <Slider.Output className="text-xs text-zinc-400 font-mono" />
+                  <Slider.Track className="bg-zinc-800">
+                    <Slider.Fill className="bg-primary" />
+                    <Slider.Thumb className="bg-primary" />
+                  </Slider.Track>
+                </Slider>
+
+                <Slider
+                  minValue={0.0}
+                  maxValue={20.0}
+                  step={0.5}
+                  value={motionFlowScale}
+                  onChange={setMotionFlowScale}
+                  className="w-full"
+                >
+                  <Label className="text-[10px] text-zinc-400 font-semibold uppercase">Motion Flow Push</Label>
                   <Slider.Output className="text-xs text-zinc-400 font-mono" />
                   <Slider.Track className="bg-zinc-800">
                     <Slider.Fill className="bg-primary" />

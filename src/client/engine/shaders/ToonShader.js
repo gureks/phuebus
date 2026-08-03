@@ -1,18 +1,20 @@
-// ToonShader.js — Posterization + Sobel Edge Outline + Audio Edge Glow
+// ToonShader.js — Comic Black outlines + Audio-Reactive Fill Hues + Neon Outlines Option
 //
 // Inputs:
-// - tDiffuse (sampler2D) -> Input texture
+// - tDiffuse (sampler2D) -> Input camera texture
 // - uResolution (vec2) -> Canvas size in pixels
 // - uTime (float) -> Time elapsed in seconds
 // - uBass (float) -> Real-time bass energy [0.0 - 1.0]
 // - uEdgeSensitivity (float) -> Sobel gradient threshold [0.01 - 0.5]
 // - uColorSteps (float) -> Color quantization steps [2.0 - 16.0]
-// - uHue (float) -> Edge glow color rotation angle in radians [0.0 - 6.283]
+// - uHue (float) -> Static hue shift angle in radians [0.0 - 6.283]
+// - uAudioHueSensitivity (float) -> Audio beat hue rotation multiplier [0.0 - 3.0]
+// - uToonOutlineMode (int) -> 0 = Comic Black outlines, 1 = Neon outlines
 //
 // Algorithm:
-// - Extracts luminance to calculate 3x3 Sobel convolution horizontal/vertical gradients.
-// - Quantizes color channels to produce the retro cell-shaded / posterized look.
-// - Performs smooth edge mixing using smoothstep, rendering an outline that glows on the bass beat.
+// - Computes Sobel 3x3 edges.
+// - Quantizes cell colors and shifts their hue based on uHue + uBass * uAudioHueSensitivity.
+// - If uToonOutlineMode == 0, blends to black outlines; if 1, blends to glowing neon.
 
 export const TOON_FRAG = `
 uniform sampler2D tDiffuse;
@@ -22,9 +24,11 @@ uniform float uBass;
 uniform float uEdgeSensitivity;
 uniform float uColorSteps;
 uniform float uHue;
+uniform float uAudioHueSensitivity;
+uniform int uToonOutlineMode;
 varying vec2 vUv;
 
-// Extract luminance (ITU-R BT.601 weights)
+// Extract luminance
 float getLuma(vec3 c) {
   return dot(c, vec3(0.299, 0.587, 0.114));
 }
@@ -41,6 +45,10 @@ void main() {
   
   // 1. Posterization
   vec3 postColor = floor(color.rgb * uColorSteps + 0.5) / uColorSteps;
+  
+  // Shift fill color based on static hue + audio bass * sensitivity
+  float activeFillHue = uHue + uBass * uAudioHueSensitivity;
+  vec3 shiftedFill = hueShift(postColor, activeFillHue);
   
   // 2. Sobel Edge Detection (3x3 Kernel)
   vec2 texel = 1.0 / uResolution;
@@ -61,14 +69,18 @@ void main() {
   
   float g = sqrt(gx * gx + gy * gy);
   
-  // 3. Smooth Edge Mapping & Audio reactive glow
-  // Base edge color is neon magenta (1.0, 0.0, 0.5)
-  vec3 baseEdgeColor = vec3(1.0, 0.0, 0.5);
-  vec3 glowColor = hueShift(baseEdgeColor, uHue) * (1.0 + uBass * 3.0);
-  
-  // Smoothly blend edge outlines over posterized color
   float edgeFactor = smoothstep(uEdgeSensitivity, uEdgeSensitivity + 0.08, g);
-  vec3 finalColor = mix(postColor, glowColor, edgeFactor);
+  
+  vec3 finalColor;
+  if (uToonOutlineMode == 0) {
+    // Comic multiply mode: outlines are darkened to black
+    finalColor = shiftedFill * (1.0 - edgeFactor * 0.95);
+  } else {
+    // Glowing neon mode: edges glow with rotated hue
+    vec3 baseEdgeColor = vec3(1.0, 0.0, 0.5); // magenta
+    vec3 glowColor = hueShift(baseEdgeColor, uHue) * (1.0 + uBass * 3.0);
+    finalColor = mix(shiftedFill, glowColor, edgeFactor);
+  }
   
   gl_FragColor = vec4(finalColor, color.a);
 }

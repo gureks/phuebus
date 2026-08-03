@@ -5,12 +5,10 @@
 // - Binds HTMLVideoElement camera stream to a THREE.VideoTexture.
 // - Implements a multi-pass pipeline:
 //   1. Auto-Gain prepass: equalizes light levels.
-//   2. Active Shader pass: runs passthrough (original), Toon, or Neon skeleton aura.
-//   3. Feedback Trails pass: accumulates frames using ping-pong targets with wavy wave dispersion.
-//   4. Screen Blit: outputs the final composited frame to the canvas.
-// - Manages and updates GLSL uniforms (Time, Resolution, Audio levels, Pose landmarks, tuning variables).
-// - Throttles render execution according to fpsCap.
-// - Cleanly disposes of all GPU resources on destroy.
+//   2. Active Shader pass: runs passthrough (original), Toon (cel shading + outline modes), or Neon edge outlines.
+//   3. Feedback Trails pass: accumulates frames using ping-pong targets with optical flow motion advection.
+//   4. Prev Frame Copy: saves current camera frame for the next cycle's optical flow calculation.
+//   5. Screen Blit: outputs the final composited frame to the canvas.
 
 import * as THREE from 'three';
 import { VERT_GLSL } from './shaders/fullscreen.vert';
@@ -41,19 +39,27 @@ export class ShaderEngine {
     // Shader Pack Tuning Variables
     this.activeShader = options.activeShader || 'passthrough'; // 'passthrough' | 'toon' | 'neon'
     this.trailsEnabled = options.trailsEnabled !== undefined ? options.trailsEnabled : false;
+    
+    // Shader custom params
     this.edgeSensitivity = options.edgeSensitivity !== undefined ? options.edgeSensitivity : 0.15;
     this.colorSteps = options.colorSteps || 5.0;
     this.decay = options.decay !== undefined ? options.decay : 0.9;
     this.dispersion = options.dispersion !== undefined ? options.dispersion : 0.002;
-    this.glowRadius = options.glowRadius !== undefined ? options.glowRadius : 0.005;
+    this.glowRadius = options.glowRadius !== undefined ? options.glowRadius : 0.08; // used as Neon Sobel threshold
     this.hue = options.hue || 0.0; // In radians
+
+    // Dynamic reactive sensitivities (Prompt 4 revisions)
+    this.audioHueSensitivity = options.audioHueSensitivity !== undefined ? options.audioHueSensitivity : 1.0;
+    this.audioDispersionSensitivity = options.audioDispersionSensitivity !== undefined ? options.audioDispersionSensitivity : 2.0;
+    this.motionFlowScale = options.motionFlowScale !== undefined ? options.motionFlowScale : 5.0;
+    this.toonOutlineMode = options.toonOutlineMode !== undefined ? options.toonOutlineMode : 0; // 0 = black, 1 = neon
 
     // Real-time audio energy stubs
     this.uBass = 0.0;
     this.uMid = 0.0;
     this.uHigh = 0.0;
 
-    // Pose Landmarks (33 points) initialized to (-1, -1)
+    // Pose Landmarks (kept for API and unit test compatibility)
     this.landmarksList = Array.from({ length: 33 }, () => new THREE.Vector2(-1, -1));
 
     // Temporal smoothing state
@@ -87,6 +93,7 @@ export class ShaderEngine {
     this.activeShaderTarget = null;
     this.feedbackTargetA = null;
     this.feedbackTargetB = null;
+    this.prevFrameTarget = null; // Previous raw camera frame for optical flow
 
     this.isPaused = false;
 
@@ -152,6 +159,7 @@ export class ShaderEngine {
     this.activeShaderTarget = createTarget(width, height);
     this.feedbackTargetA = createTarget(width, height);
     this.feedbackTargetB = createTarget(width, height);
+    this.prevFrameTarget = createTarget(width, height);
 
     // 5. Shader Materials
     this.lumaDownMaterial = new THREE.ShaderMaterial({
@@ -185,7 +193,9 @@ export class ShaderEngine {
         uBass: { value: 0 },
         uEdgeSensitivity: { value: this.edgeSensitivity },
         uColorSteps: { value: this.colorSteps },
-        uHue: { value: this.hue }
+        uHue: { value: this.hue },
+        uAudioHueSensitivity: { value: this.audioHueSensitivity },
+        uToonOutlineMode: { value: this.toonOutlineMode }
       },
       vertexShader: VERT_GLSL,
       fragmentShader: TOON_FRAG,
@@ -196,7 +206,8 @@ export class ShaderEngine {
     this.neonMaterial = new THREE.ShaderMaterial({
       uniforms: {
         tDiffuse: { value: null },
-        uLandmarks: { value: this.landmarksList },
+        uResolution: { value: new THREE.Vector2(width, height) },
+        uLandmarks: { value: this.landmarksList }, // kept for mock compatibility
         uTime: { value: 0 },
         uBass: { value: 0 },
         uMid: { value: 0 },
@@ -213,9 +224,14 @@ export class ShaderEngine {
       uniforms: {
         tCurrent: { value: null },
         tPrev: { value: null },
+        tPrevFrame: { value: null },
         uDecay: { value: this.decay },
         uTime: { value: 0 },
-        uDispersion: { value: this.dispersion }
+        uResolution: { value: new THREE.Vector2(width, height) },
+        uBass: { value: 0 },
+        uDispersion: { value: this.dispersion },
+        uAudioDispersionSensitivity: { value: this.audioDispersionSensitivity },
+        uMotionFlowScale: { value: this.motionFlowScale }
       },
       vertexShader: VERT_GLSL,
       fragmentShader: TRAILS_FRAG,
@@ -334,6 +350,34 @@ export class ShaderEngine {
     if (this.neonMaterial) this.neonMaterial.uniforms.uHue.value = rad;
   }
 
+  setAudioHueSensitivity(val) {
+    this.audioHueSensitivity = val;
+    if (this.toonMaterial) {
+      this.toonMaterial.uniforms.uAudioHueSensitivity.value = val;
+    }
+  }
+
+  setAudioDispersionSensitivity(val) {
+    this.audioDispersionSensitivity = val;
+    if (this.feedbackMaterial) {
+      this.feedbackMaterial.uniforms.uAudioDispersionSensitivity.value = val;
+    }
+  }
+
+  setMotionFlowScale(val) {
+    this.motionFlowScale = val;
+    if (this.feedbackMaterial) {
+      this.feedbackMaterial.uniforms.uMotionFlowScale.value = val;
+    }
+  }
+
+  setToonOutlineMode(val) {
+    this.toonOutlineMode = val; // 0 = black, 1 = neon
+    if (this.toonMaterial) {
+      this.toonMaterial.uniforms.uToonOutlineMode.value = val;
+    }
+  }
+
   setAudioData(bass, mid, high = 0) {
     this.uBass = bass;
     this.uMid = mid;
@@ -342,13 +386,11 @@ export class ShaderEngine {
 
   setLandmarks(landmarks) {
     if (!landmarks || landmarks.length === 0) {
-      // Invalidate all landmarks
       for (let i = 0; i < 33; i++) {
         this.landmarksList[i].set(-1, -1);
       }
       return;
     }
-    // Update matching indices in-place
     for (let i = 0; i < 33; i++) {
       if (landmarks[i]) {
         this.landmarksList[i].set(landmarks[i].x, landmarks[i].y);
@@ -386,9 +428,16 @@ export class ShaderEngine {
     if (this.activeShaderTarget) this.activeShaderTarget.setSize(width, height);
     if (this.feedbackTargetA) this.feedbackTargetA.setSize(width, height);
     if (this.feedbackTargetB) this.feedbackTargetB.setSize(width, height);
+    if (this.prevFrameTarget) this.prevFrameTarget.setSize(width, height);
 
     if (this.toonMaterial) {
       this.toonMaterial.uniforms.uResolution.value.set(width, height);
+    }
+    if (this.neonMaterial) {
+      this.neonMaterial.uniforms.uResolution.value.set(width, height);
+    }
+    if (this.feedbackMaterial) {
+      this.feedbackMaterial.uniforms.uResolution.value.set(width, height);
     }
   }
 
@@ -479,7 +528,6 @@ export class ShaderEngine {
       this.neonMaterial.uniforms.uBass.value = this.uBass;
       this.neonMaterial.uniforms.uMid.value = this.uMid;
     } else {
-      // passthrough
       this.copyMaterial.uniforms.tDiffuse.value = this.prepassTarget.texture;
     }
 
@@ -494,7 +542,9 @@ export class ShaderEngine {
       this.quadMesh.material = this.feedbackMaterial;
       this.feedbackMaterial.uniforms.tCurrent.value = this.activeShaderTarget.texture;
       this.feedbackMaterial.uniforms.tPrev.value = this.feedbackTargetA.texture;
+      this.feedbackMaterial.uniforms.tPrevFrame.value = this.prevFrameTarget.texture;
       this.feedbackMaterial.uniforms.uTime.value = timeSec;
+      this.feedbackMaterial.uniforms.uBass.value = this.uBass;
 
       this.renderer.setRenderTarget(this.feedbackTargetB);
       this.renderer.render(this.quadScene, this.quadCamera);
@@ -507,7 +557,13 @@ export class ShaderEngine {
       finalSourceTarget = this.feedbackTargetA;
     }
 
-    // --- Pass 5: Final screen blit ---
+    // --- Pass 5: Save current prepass frame for the next frame's optical flow calculation ---
+    this.quadMesh.material = this.copyMaterial;
+    this.copyMaterial.uniforms.tDiffuse.value = this.prepassTarget.texture;
+    this.renderer.setRenderTarget(this.prevFrameTarget);
+    this.renderer.render(this.quadScene, this.quadCamera);
+
+    // --- Pass 6: Final screen blit ---
     this.quadMesh.material = this.copyMaterial;
     this.copyMaterial.uniforms.tDiffuse.value = finalSourceTarget.texture;
 
@@ -552,6 +608,7 @@ export class ShaderEngine {
     if (this.activeShaderTarget) this.activeShaderTarget.dispose();
     if (this.feedbackTargetA) this.feedbackTargetA.dispose();
     if (this.feedbackTargetB) this.feedbackTargetB.dispose();
+    if (this.prevFrameTarget) this.prevFrameTarget.dispose();
 
     this.renderer = null;
     this.videoTexture = null;
@@ -567,6 +624,7 @@ export class ShaderEngine {
     this.activeShaderTarget = null;
     this.feedbackTargetA = null;
     this.feedbackTargetB = null;
+    this.prevFrameTarget = null;
     this.quadScene = null;
   }
 }
