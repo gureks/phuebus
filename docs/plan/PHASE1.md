@@ -83,16 +83,16 @@ feat(ingestion): VideoIngestion.js — WebRTC PeerJS + UVC/USB MediaDevices supp
 ## Prompt 3 — Three.js Shader Engine Foundation
 
 ### Research
-- [ ] Verify `THREE.WebGLRenderTarget` ping-pong buffer for feedback trails
-- [ ] Confirm `THREE.VideoTexture` auto-update behavior on Chrome (requestVideoFrameCallback)
-- [ ] Confirm `OrthographicCamera(-1, 1, 1, -1, 0, 1)` + `PlaneGeometry(2, 2)` clip-space quad pattern
+- [x] Verify `THREE.WebGLRenderTarget` ping-pong buffer for feedback trails
+- [x] Confirm `THREE.VideoTexture` auto-update behavior on Chrome (requestVideoFrameCallback)
+- [x] Confirm `OrthographicCamera(-1, 1, 1, -1, 0, 1)` + `PlaneGeometry(2, 2)` clip-space quad pattern
 
 ### Plan
-- [ ] `ShaderEngine.js`: renderer init, RenderTarget chain, VideoTexture binding, renderLoop
-- [ ] `AutoGainPrepass.js` (GLSL): luminance sampling, adaptive gain, highlight clamp
-- [ ] Standard shared `fullscreen.vert.glsl` passthrough vertex shader
-- [ ] Wire `uTime`, `uResolution` uniforms
-- [ ] Output to `renderer.domElement` in `display.html` as fullscreen canvas
+- [x] `ShaderEngine.js`: renderer init, RenderTarget chain, VideoTexture binding, renderLoop
+- [x] `AutoGainPrepass.js` (GLSL): luminance sampling, adaptive gain, highlight clamp
+- [x] Standard shared `fullscreen.vert.glsl` passthrough vertex shader
+- [x] Wire `uTime`, `uResolution` uniforms
+- [x] Output to `renderer.domElement` in `display.html` as fullscreen canvas
 
 ### Ask Before Writing
 - Canvas resolution: match display resolution or render at fixed 1920×1080?
@@ -100,10 +100,10 @@ feat(ingestion): VideoIngestion.js — WebRTC PeerJS + UVC/USB MediaDevices supp
 - DPR capping: hardcoded at `Math.min(devicePixelRatio, 2)` or user-configurable?
 
 ### Verify
-- [ ] Camera feed appears fullscreen in display canvas
-- [ ] Auto-gain pre-pass visibly brightens a dark scene (test with dim room lighting)
-- [ ] No console errors; WebGL2 confirmed via `renderer.capabilities.isWebGL2`
-- [ ] Frame rate at 60fps on MacBook M-series (verify via Stats.js overlay)
+- [x] Camera feed appears fullscreen in display canvas
+- [x] Auto-gain pre-pass visibly brightens a dark scene (test with dim room lighting)
+- [x] No console errors; WebGL2 confirmed via `renderer.capabilities.isWebGL2`
+- [x] Frame rate at 60fps on MacBook M-series (verify via Stats.js overlay)
 
 ### Commit Message
 ```
