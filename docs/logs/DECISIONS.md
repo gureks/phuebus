@@ -422,7 +422,40 @@ Rendering to a 1x1 render target utilizing a custom shader that samples a 8x8 gr
 - Enabled smooth temporal adaptation (`this.avgLuma = this.avgLuma * 0.95 + measuredLuma * 0.05`) without main thread latency.
 
 ### References
-- SPEC.md Section 4.2
+
+## DEC-013 — P1-7 Presets System and Engine Switch Strategy
+
+- **Date:** 2026-08-04
+- **Prompt:** P-011
+- **Phase:** Phase 1
+- **Status:** ✅ Decided
+
+### Context
+Preset styling variables need to be updated atomically across both displays and remotes. The transition between different engine modes (Shader vs. AI Diffusion vs. Cloud) must not cause desynchronized states.
+
+### Decision
+**Chosen: Hard-coded JS PRESETS mapping array with bidirectional Socket.IO sync via EngineRouter.**
+
+### Rationale
+Storing presets as plain JavaScript objects in `presets.js` enables atomic updates to the shader variables and engine switches via `EngineRouter.applyPreset()`. Hard cuts (no crossfades) in Phase 1 avoid heavy render-target blending overhead, maintaining a sub-1ms routing latency.
+
+---
+
+## DEC-014 — P1-8 Mobile Remote UI Overhaul with Expandable Bottom Sheet
+
+- **Date:** 2026-08-04
+- **Prompt:** P-011
+- **Phase:** Phase 1
+- **Status:** ✅ Decided
+
+### Context
+Mobile controllers require a low-friction interface to quickly select presets and adjust styling variables on the fly. 
+
+### Decision
+**Chosen: 2x3 Preset Grid with a sliding bottom sheet drawer for tuning sliders.**
+
+### Rationale
+A 2x3 grid provides large, tap-friendly tiles for the 6 core presets. Isolating parameter sliders (FPS Cap, Edge Sensitivity, Beat Reactivity, Motion Decay, Color Levels) in a CSS-animated drawer maximizes screen space and avoids layout shifting. Pointer Events API is used to ensure zero click lag on mobile browsers.
 
 
 

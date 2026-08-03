@@ -174,3 +174,15 @@ The following were researched via web search (not Context7) due to Context7 gaps
 
 **Winner: Vite SPA (React + Tailwind + HeroUI/ShadCN)** → [DEC-009](../logs/DECISIONS.md#dec-009)
 
+
+## 10. Real-Time AI Diffusion Engine (Phase 2)
+
+**Requirement:** Real-time AI diffusion styling (SDXL Turbo/LCM) of live video stream at 10-15fps with control plane prompt deck and sub-150ms cloud latency.
+
+| Alternative | Fit | Perf | DX | Phase Fit | **Total** | Notes |
+|---|---|---|---|---|---|---|
+| **Option A: MLX SDXL Turbo/LCM (Local) + StreamDiffusion (Cloud)** ✅ | 5 | 5 | 4 | 5 | **19** | Highest rating. Native M-series optimization using MLX. StreamDiffusion cloud gives sub-150ms latency. |
+| Option B: ComfyUI API | 4 | 3 | 3 | 3 | **13** | Great DX, but pipeline overhead is too high for sub-100ms real-time generation. |
+| Option C: A1111 WebUI API | 3 | 2 | 2 | 2 | **9** | Too heavy, high latency, poor API for streaming frames. |
+
+**Winner: Option A** → [DEC-010](../logs/DECISIONS.md#dec-010)
