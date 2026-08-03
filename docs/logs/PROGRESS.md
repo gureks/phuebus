@@ -12,7 +12,7 @@
 | Phase | Prompts | Done | In Progress | Pending | Completion |
 |---|---|---|---|---|---|
 | Planning | — | ✅ | — | — | **100%** |
-| Phase 1 | 10 | 6 | 0 | 4 | **60%** |
+| Phase 1 | 10 | 10 | 0 | 0 | **100%** |
 | Phase 2 | 6 | 0 | 0 | 6 | **0%** |
 | Phase 3 | 5 | 0 | 0 | 5 | **0%** |
 
@@ -39,7 +39,7 @@
 
 ---
 
-## Phase 1 — 🟡 In Progress
+## Phase 1 — ✅ Complete
 
 *Pre-condition: Planning complete ✅ — ready to begin.*
 
@@ -51,26 +51,26 @@
 | P1-4 | Shader pack (Toon + Trails + Neon) | ✅ Done | `0af9d5c` | Complete shader pack including Sobel toon contours, ping-pong feedback trails, and skeletal NeonAura |
 | P1-5 | Audio reactivity engine | ✅ Done | `df78f08` | AudioAnalyzer: Web Audio FFT, adaptive beat detection, device routing; real audio feeds ShaderEngine uniforms |
 | P1-6 | Pose tracker (MediaPipe) | ✅ Done | `df78f08` | PoseTracker: tasks-vision PoseLandmarker GPU delegate, Y-flip, timestamp guard; toggle switch in Display sidebar |
-| P1-7 | Engine router + preset system | ⬜ Pending | — | Depends on P1-3,4,5,6 |
-| P1-8 | Mobile remote UI | ⬜ Pending | — | Depends on P1-7 |
-| P1-9 | Display host UI | ⬜ Pending | — | Depends on P1-7 |
-| P1-10 | Integration + polish | ⬜ Pending | — | Final Phase 1 |
+| P1-7 | Engine router + preset system | ✅ Done | `43dd71f` | EngineRouter, core presets configuration, and DiffusionEngine / ModelPack stubs |
+| P1-8 | Mobile remote UI | ✅ Done | `43dd71f` | UI overhauled with 2x3 preset grid and swipe-up parameter tuning sheet |
+| P1-9 | Display host UI | ✅ Done | `43dd71f` | Display updates: HUD overlay (preset/mode/FPS/audio), auto-hide after 4s, session join QR, WebM recorder |
+| P1-10 | Integration + polish | ✅ Done | `43dd71f` | Integration polish, automated test coverage, local IP API endpoint, clean production build |
 
 ### Phase 1 Exit Criteria
 
 | Criterion | Status |
 |---|---|
-| Sub-30ms end-to-end latency on LAN | ⬜ |
+| Sub-30ms end-to-end latency on LAN | ✅ |
 | WebRTC mobile stream → display working | ✅ |
 | UVC/USB camera selection working | ✅ |
 | Auto-gain pre-pass active by default | ✅ |
-| All 3 shaders functional (Toon, Trails, Neon) | ⬜ |
-| Audio FFT device routing functional | ⬜ |
-| Pose tracking skeleton overlay functional | ⬜ |
-| Mobile remote bidirectionally synced | ⬜ |
-| Canvas recording functional | ⬜ |
-| Zero cloud dependencies | ⬜ |
-| Phase 2 stubs in place | ⬜ |
+| All 3 shaders functional (Toon, Trails, Neon) | ✅ |
+| Audio FFT device routing functional | ✅ |
+| Pose tracking skeleton overlay functional | ✅ |
+| Mobile remote bidirectionally synced | ✅ |
+| Canvas recording functional | ✅ |
+| Zero cloud dependencies | ✅ |
+| Phase 2 stubs in place | ✅ |
 
 ---
 
