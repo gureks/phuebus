@@ -229,7 +229,16 @@
 - [DEC-011] Automated testing integration: Vitest and coverage checking for backend endpoints and client logic.
 
 ### Outputs Produced
-- *(To be updated during execution)*
+- `src/server.test.js` — Vitest backend integration tests
+- `src/client/engine/VideoIngestion.test.js` — Vitest frontend class unit tests
+- `src/client/index.css` — Removed all custom classes, glow utilities, and style variables
+- `src/client/components/` (Home, Display, Remote) — Cleaned styles to use strictly default HeroUI classes
+- `AGENTS.md` — Appended strict guidelines for HeroUI styling and automated testing practices
+- `.gitignore` — Ignored coverage directories
 
 ### Notes
-- *(To be updated during execution)*
+- Enabled fallback polling Socket.IO transport in `server.js` and `Remote.jsx` to increase mobile compatibility.
+- Added on-screen log outputs inside `Remote.jsx` to let users see exact client errors on mobile.
+- Enforced main module check on server startup to allow clean testing imports without port binding conflicts.
+- Built-in Vitest coverage report shows all tests passing successfully.
+

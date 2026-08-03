@@ -345,4 +345,51 @@ Migrating the front-end to a unified React SPA using Vite allows us to leverage 
 - PRD.md / PROMPT.md requirements
 - HeroUI v3 Component List
 
+---
+
+## DEC-010 — HeroUI Styling Constraints: Strict Default Theme Enforcement
+
+- **Date:** 2026-08-03
+- **Prompt:** P-006 — Debugging Remote Connection, Default HeroUI Styling, and Unit Testing
+- **Phase:** Phase 1
+- **Status:** ✅ Decided
+
+### Context
+Custom styling rules (custom color schemes, neon glows, shadows, custom borders) override the cohesive default theme of HeroUI, leading to maintenance complexity.
+
+### Decision
+**Chosen: Enforce strict HeroUI default theme usage.**
+
+### Rationale
+Sticking strictly to default semantic variables (`primary`, `secondary`, `success`, `danger`, `warning`, `foreground`, `background`, `border`, `muted-foreground`) ensures visual consistency and eliminates style configuration overhead. All custom glow utilities, color definitions, and dark overrides are prohibited unless explicitly requested.
+
+### Consequences
+- Removed all custom styles and color variables from `index.css`.
+- Home, Display, and Remote pages updated to default semantic classes.
+- Guidelines written in `AGENTS.md`.
+
+---
+
+## DEC-011 — Automated Testing Integration: Unit and Coverage Enforcement
+
+- **Date:** 2026-08-03
+- **Prompt:** P-006 — Debugging Remote Connection, Default HeroUI Styling, and Unit Testing
+- **Phase:** Phase 1
+- **Status:** ✅ Decided
+
+### Context
+Assuring software quality and avoiding regression errors requires automated testing as a verify step for both backend server routes and client modules.
+
+### Decision
+**Chosen: Implement Vitest + coverage checks as a mandatory verification gate.**
+
+### Rationale
+Vitest provides super-fast test execution and native ESM/Vite integration, matching our build environment. Using `supertest` for Express API integration testing and mocking browser APIs for `VideoIngestion` allows robust validation.
+
+### Consequences
+- Added `test` and `test:coverage` commands to package scripts.
+- Configured coverage parameters in `vite.config.js`.
+- Rules enforced in `AGENTS.md` verification workflow.
+
+
 
