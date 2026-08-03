@@ -159,3 +159,18 @@ The following were researched via web search (not Context7) due to Context7 gaps
 | Web Audio API AnalyserNode | Web search | Create one `AudioContext` per app; resume after user gesture; do NOT connect analyser to destination |
 | MediaDevices API (UVC) | Web search (confirmed) | UVC capture cards appear as standard `videoinput` in `enumerateDevices()` on macOS Chrome |
 | Tauri v2 | Web search | WebView2 (Windows) and WebKit (macOS) both support WebGL2 and MediaDevices; confirmed sidecar plugin available |
+
+---
+
+## 9. React/Vite Migration for HeroUI/ShadCN Integration
+
+**Requirement:** Migrate the UI and build system to support HeroUI v3 and/or ShadCN React component libraries.
+
+| Alternative | Fit | Perf | DX | Phase Fit | **Total** | Notes |
+|---|---|---|---|---|---|---|
+| **Vite SPA (React + Tailwind + HeroUI/ShadCN)** ✅ | 5 | 5 | 5 | 5 | **20** | Standard React SPA setup. Highly optimized production build, great DX with MCP schemas, easiest packaging for Tauri in Phase 3. |
+| Vite MPA (Multi-Entry React + Tailwind) | 4 | 4 | 4 | 4 | **16** | Preserves separate entrypoints, but higher configuration complexity in Vite and separate React bundle overhead. |
+| Vanilla HTML + CDN React/UMD | 2 | 2 | 1 | 1 | **6** | In-browser compilation is slow, lacks type safety, and HeroUI v3/ShadCN are not distributed as simple UMD files. |
+
+**Winner: Vite SPA (React + Tailwind + HeroUI/ShadCN)** → [DEC-009](../logs/DECISIONS.md#dec-009)
+

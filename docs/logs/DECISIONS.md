@@ -311,3 +311,38 @@ Express's `serve-static` package allows serving `.html` files without the extens
 ### References
 - Express documentation on static files option
 
+---
+
+## DEC-009 — React/Vite Migration for HeroUI v3 & ShadCN Integration
+
+- **Date:** 2026-08-03
+- **Prompt:** P-005 — Phase 1.2
+- **Phase:** Phase 1
+- **Status:** ✅ Decided
+
+### Context
+To strictly use HeroUI v3 and/or ShadCN React component libraries, we need a modern React build pipeline. The vanilla HTML setup does not support the installation and compilation of React compound components with Tailwind CSS easily.
+
+### Options Evaluated
+| Option | Pros | Cons | Score (1–5) |
+|---|---|---|---|
+| **Vite SPA (React + Tailwind + HeroUI/ShadCN)** | Industry standard React setup. Highly optimized production output. Seamless integration with the HeroUI v3 and ShadCN registries/MCPs. Easy to package as Tauri app in Phase 3. | Requires migrating our current index/display/remote pages to React components | **5** |
+| Vite MPA (Multi-Page React entries) | Keeps separate static HTML entry points | Complex multi-entry config in Vite, duplicate bundle sizes, harder to maintain route configs | **4** |
+| React via CDN / Babel in-browser | No compilation step required | Massive performance lag due to client-side compilation, no direct support for ShadCN/HeroUI components (designed as Node modules) | **1** |
+
+### Decision
+**Chosen: Vite SPA (React + Tailwind + HeroUI/ShadCN)**
+
+### Rationale
+Migrating the front-end to a unified React SPA using Vite allows us to leverage HeroUI v3 and ShadCN directly. Express will serve the compiled static build output (from `dist/`). This provides an extremely modern dev workflow, unlocks full component code imports via our MCP servers, and is fully compatible with our PeerJS and Socket.IO real-time features.
+
+### Consequences
+- Frontend code will move into a unified React structure (e.g. standard `src/` or a separate `src/frontend` folder).
+- We'll use a router (like `react-router-dom` or a lightweight custom router) to handle `/`, `/display`, and `/remote` page states.
+- The build directory will output to a single static folder (e.g. `src/dist` or `src/public`) served by Express.
+
+### References
+- PRD.md / PROMPT.md requirements
+- HeroUI v3 Component List
+
+

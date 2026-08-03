@@ -175,3 +175,28 @@
 - Fixed `peer` version package naming from non-existent `^9.0.1` to latest stable `^1.0.2` in package.json.
 - Discovered and resolved a routing issue where extensionless static requests (like `/display`) returned 404 by adding explicit routes and configuration in `server.js`.
 
+---
+
+## P-005 — Phase 1.2: Video Ingestion (WebRTC + UVC Ingestion)
+
+- **Date:** 2026-08-03 20:52 (IST)
+- **Phase:** Phase 1
+- **Type:** Feature
+
+### Prompt (verbatim)
+> 1. All 3 pages show 200 OK. The remote is connecting, however desktop display shows a loading and waiting for stream message.
+>
+> 2. Going forward strictly use HeroUI v3 or ShadCN. Both MCP are available for documentations.
+>
+> 3. Move to phase1.2 next. Ask clarifying questions if needed.
+
+### Decisions Triggered
+- [DEC-009] React/Vite Migration for HeroUI/ShadCN — Migrating frontend pages to a unified React build setup.
+
+### Outputs Produced
+- *(To be updated during execution)*
+
+### Notes
+- *(To be updated during execution)*
+
+

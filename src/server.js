@@ -82,15 +82,14 @@ peerServer.on('disconnect', (client) => {
 });
 
 // ── Static assets ─────────────────────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
+// Serve compiled client bundle assets from the Vite output dir 'dist'
+app.use(express.static(path.join(__dirname, 'dist')));
 
-app.get('/display', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'display.html'));
+// Fallback to React index.html for all page requests
+app.get(['/', '/display', '/remote'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.get('/remote', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'remote.html'));
-});
 
 
 // ── Room state ────────────────────────────────────────────────────────────────
