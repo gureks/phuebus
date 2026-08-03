@@ -146,3 +146,32 @@
 - git remote `origin` set to `https://github.com/gureks/phuebus.git` by user (already pushed)
 - Zero stale `PLAN_PHASE*` references confirmed after restructure
 - Phase 1 scaffolding begins next prompt
+
+---
+
+## P-004 — Phase 1 Scaffolding: Server & App Foundations
+
+- **Date:** 2026-08-03 20:35 (IST)
+- **Phase:** Phase 1
+- **Type:** Feature
+
+### Prompt (verbatim)
+> continue where the process was interuppted (after selecting 1A, 2C, 3A for decisions)
+
+### Decisions Triggered
+- [DEC-008] Express static HTML routing extension configuration — enabled extensionless HTML file resolution for Display/Remote URLs.
+
+### Outputs Produced
+- `src/package.json` — Created package definition and stable peer/socket.io dependencies
+- `src/server.js` — Created backend server with Socket.IO signaling, Express routes and PeerJS middleware
+- `src/public/css/app.css` — Created core dark-mode CSS design system
+- `src/public/index.html` — Created landing page with automatic and manual session routing
+- `src/public/display.html` — Created display page with Socket.IO signaling stubs
+- `src/public/remote.html` — Created remote page with connection UI and signal emitters
+- `src/.env.example` — Created environment variable template
+- `src/.env` — Created active environment configuration
+
+### Notes
+- Fixed `peer` version package naming from non-existent `^9.0.1` to latest stable `^1.0.2` in package.json.
+- Discovered and resolved a routing issue where extensionless static requests (like `/display`) returned 404 by adding explicit routes and configuration in `server.js`.
+

@@ -277,3 +277,37 @@ The project is vanilla HTML + JS (no framework, no bundler in Phase 1). A build 
 
 ### References
 - SPEC.md Section 4.7
+
+---
+
+## DEC-008 — Static Page Routing: Express Static Extensions vs Explicit File Send
+
+- **Date:** 2026-08-03
+- **Prompt:** P-004 — Phase 1 Scaffolding
+- **Phase:** Phase 1
+- **Status:** ✅ Decided
+
+### Context
+When using `express.static` with raw HTML files, requests to `/display` and `/remote` result in 404 because the server searches for directories or specific file paths rather than mapping them directly to `/display.html` and `/remote.html`.
+
+### Options Evaluated
+| Option | Pros | Cons | Score (1–5) |
+|---|---|---|---|
+| **Configure static extensions (`extensions: ['html']`) + Explicit SendFile fallback** | Bulletproof, handles both extensionless requests and any future router mapping. Cleanest URL structure. | Minor redundancy in server code | **5** |
+| Configure static extensions only | Simple configuration | No explicit catch/handling if routing rules change | **4** |
+| Force users to include `.html` extension (e.g. `/display.html`) | Zero server configuration | Poor UX, not aligned with typical modern web app routes | **1** |
+
+### Decision
+**Chosen: Configure static extensions (`extensions: ['html']`) + Explicit SendFile routing**
+
+### Rationale
+Express's `serve-static` package allows serving `.html` files without the extension if the `extensions` option is configured. Adding explicit `app.get('/display', ...)` rules makes it absolutely certain that these routing entry points are preserved regardless of directory structure or static middleware placement.
+
+### Consequences
+- Requesting `http://localhost:3000/display` serves `public/display.html` correctly without the extension.
+- Requesting `http://localhost:3000/remote` serves `public/remote.html` correctly.
+- Prevents breaking socket or video stream URL formats.
+
+### References
+- Express documentation on static files option
+

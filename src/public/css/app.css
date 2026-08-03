@@ -1,0 +1,293 @@
+/* ─── Phuebus — Base Design System ────────────────────────────────────────────
+   Single CSS file for all three pages (index, display, remote).
+   Dark-mode first. Touch-action: none on all interactive elements.
+   Animations: transform only — never top/bottom/left/right (SPEC.md §4.5)
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Design Tokens ─────────────────────────────────────────────────────────── */
+:root {
+  /* Colors */
+  --bg-base:       #0a0a0f;
+  --bg-surface:    #12121a;
+  --bg-elevated:   #1c1c28;
+  --bg-overlay:    rgba(18, 18, 26, 0.92);
+
+  --accent:        #7c3aed;      /* violet */
+  --accent-bright: #a855f7;
+  --accent-glow:   rgba(124, 58, 237, 0.35);
+
+  --neon-cyan:     #22d3ee;
+  --neon-pink:     #f472b6;
+  --neon-green:    #4ade80;
+
+  --text-primary:  #f0f0f8;
+  --text-secondary:#9090b0;
+  --text-muted:    #505070;
+
+  --border:        rgba(255, 255, 255, 0.06);
+  --border-bright: rgba(124, 58, 237, 0.4);
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Transitions */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:   cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+}
+
+/* ── Reset & Base ───────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  color-scheme: dark;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── Typography ─────────────────────────────────────────────────────────────── */
+h1, h2, h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+p { color: var(--text-secondary); }
+
+a {
+  color: var(--accent-bright);
+  text-decoration: none;
+  transition: color var(--duration-fast) ease;
+}
+a:hover { color: var(--text-primary); }
+
+code, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+/* ── Utility: Status dots ────────────────────────────────────────────────────── */
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.dot.connected { background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green); }
+.dot.error     { background: #f87171; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 12px 24px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) ease,
+    transform  var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+  touch-action: none;          /* eliminate 300ms delay on mobile */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+.btn-primary:hover {
+  background: var(--accent-bright);
+  box-shadow: 0 0 30px var(--accent-glow);
+}
+
+.btn-ghost {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover {
+  border-color: var(--border-bright);
+  background: var(--bg-elevated);
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Card / Surface ──────────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.card-elevated {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+/* ── Session code pill ───────────────────────────────────────────────────────── */
+.session-code {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--accent-bright);
+  text-shadow: 0 0 24px var(--accent-glow);
+  padding: var(--space-md) var(--space-xl);
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-md);
+}
+
+/* ── Input ───────────────────────────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  outline: none;
+  transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+}
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.input::placeholder { color: var(--text-muted); letter-spacing: 0.1em; }
+
+/* ── Status bar / HUD ────────────────────────────────────────────────────────── */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.status-bar .status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Page layouts ────────────────────────────────────────────────────────────── */
+.page-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  gap: var(--space-lg);
+}
+
+/* ── Logo / Wordmark ─────────────────────────────────────────────────────────── */
+.logo {
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, var(--accent-bright) 0%, var(--neon-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.logo-sub {
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: -8px;
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fade-in-up var(--duration-slow) var(--ease-out-expo) both;
+}
+.animate-in-delay-1 { animation-delay: 60ms; }
+.animate-in-delay-2 { animation-delay: 120ms; }
+.animate-in-delay-3 { animation-delay: 180ms; }
+.animate-in-delay-4 { animation-delay: 240ms; }
+
+/* ── Glow effects ────────────────────────────────────────────────────────────── */
+.glow-accent { box-shadow: 0 0 30px var(--accent-glow); }
+.glow-cyan   { box-shadow: 0 0 20px rgba(34, 211, 238, 0.25); }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 2px; }
+
+/* ── Responsive helpers ──────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .session-code { font-size: 1.8rem; letter-spacing: 0.2em; }
+}

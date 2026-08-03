@@ -10,7 +10,7 @@ You are an expert real-time graphics and full-stack engineer building **Phuebus*
 * **Real-Time Communication:** socket.io for bidirectional control signals; peerjs / native WebRTC for mobile camera streaming.  
 * **Graphics & Ingestion:** Three.js / WebGL2, MediaDevices UVC/USB Camera Ingestion API, @mediapipe/pose, @mediapipe/camera\_utils.  
 * **Audio Reactivity:** Web Audio API with configurable device input routing (Aux line-in, USB Interface, Mic).  
-* **UI Framework:** Vanilla HTML5 / Tailwind CSS (Dark Mode, touch-optimized, mobile bottomsheet components).
+* **UI Framework:** HeroUI v3 (previously NextUI) (Dark Mode, touch-optimized, mobile bottomsheet components).
 
 ## **Architecture Requirements**
 

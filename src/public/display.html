@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Phuebus Display — Projector output canvas and shader control surface.">
+  <title>Phuebus — Display</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    body { overflow: hidden; }
+
+    /* Fullscreen canvas — projector output */
+    #renderCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      display: block;
+    }
+
+    /* HUD overlay — always above canvas */
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top bar */
+    #topBar {
+      pointer-events: all;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background: var(--bg-overlay);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      gap: 16px;
+    }
+
+    .hud-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hud-value {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+
+    /* Bottom loading / waiting state */
+    #waitingState {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      pointer-events: none;
+    }
+    #waitingState.hidden { display: none; }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent-bright);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .waiting-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    /* Code display in HUD */
+    #hudCode {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--accent-bright);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Render target — ShaderEngine mounts here in Prompt 3 -->
+  <canvas id="renderCanvas"></canvas>
+
+  <!-- HUD overlay -->
+  <div id="hud">
+    <div id="topBar">
+      <div class="hud-item">
+        <span class="dot" id="socketDot"></span>
+        <span id="socketStatus">Connecting…</span>
+      </div>
+      <div class="hud-item">
+        <span class="dot" id="peerDot"></span>
+        <span id="peerStatus">Camera: waiting</span>
+      </div>
+      <div class="hud-item">
+        Code: <span id="hudCode">----</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-value" id="engineMode">shader</span>
+      </div>
+      <div class="hud-item">
+        <span id="fps" class="hud-value">-- FPS</span>
+      </div>
+    </div>
+
+    <!-- Shown until a camera stream arrives (populated by VideoIngestion in Prompt 2) -->
+    <div id="waitingState">
+      <div class="spinner"></div>
+      <span class="waiting-label">Waiting for camera stream…</span>
+      <span class="waiting-label">
+        Open <strong style="color:var(--text-primary)">Remote</strong> on your phone and enter code:
+        <span id="waitCode" style="color:var(--accent-bright);font-family:var(--font-mono);font-weight:700">----</span>
+      </span>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // ── Session setup ─────────────────────────────────────────────────────────
+    // Read ?code= from URL or fall back to server's auto-generated code
+    const urlParams  = new URLSearchParams(window.location.search);
+    let   ROOM_CODE  = urlParams.get('code')?.toUpperCase().trim() ?? null;
+
+    const socketDot    = document.getElementById('socketDot');
+    const socketStatus = document.getElementById('socketStatus');
+    const peerDot      = document.getElementById('peerDot');
+    const peerStatus   = document.getElementById('peerStatus');
+    const hudCode      = document.getElementById('hudCode');
+    const waitCode     = document.getElementById('waitCode');
+    const engineMode   = document.getElementById('engineMode');
+    const waitingState = document.getElementById('waitingState');
+
+    // ── Socket.IO ─────────────────────────────────────────────────────────────
+    const socket = io({ transports: ['websocket'] });
+
+    async function init() {
+      // If no code in URL, fetch server's default
+      if (!ROOM_CODE) {
+        const res  = await fetch('/api/session');
+        const data = await res.json();
+        ROOM_CODE = data.roomCode;
+      }
+      hudCode.textContent  = ROOM_CODE;
+      waitCode.textContent = ROOM_CODE;
+
+      socket.emit('join_room', { roomCode: ROOM_CODE });
+    }
+
+    socket.on('connect', () => {
+      socketDot.className    = 'dot connected';
+      socketStatus.textContent = 'Socket: connected';
+      init();
+    });
+
+    socket.on('disconnect', () => {
+      socketDot.className      = 'dot error';
+      socketStatus.textContent = 'Socket: disconnected';
+    });
+
+    // ── room_state: receives peer IDs for WebRTC coordination ─────────────────
+    // VideoIngestion.js (Prompt 2) will react to remotePeerIds here
+    socket.on('room_state', (state) => {
+      console.log('[Display] room_state:', state);
+      // Populated by VideoIngestion.js in Prompt 2
+    });
+
+    // ── Control event stubs (wired, no-op until engine is built in Prompt 3+) ──
+    socket.on('preset_change',      (d) => console.log('[Display] preset_change', d));
+    socket.on('slider_update',      (d) => console.log('[Display] slider_update', d));
+    socket.on('engine_switch',      (d) => {
+      engineMode.textContent = d.mode ?? 'shader';
+      console.log('[Display] engine_switch', d);
+    });
+    socket.on('prompt_update',      (d) => console.log('[Display] prompt_update', d));
+    socket.on('audio_source_change',(d) => console.log('[Display] audio_source_change', d));
+    socket.on('fps_cap_change',     (d) => console.log('[Display] fps_cap_change', d));
+
+    // ── FPS counter — stub (real value comes from ShaderEngine in Prompt 3) ───
+    // Updated externally by ShaderEngine once mounted
+    window.__phuebusUpdateFPS = (fps) => {
+      document.getElementById('fps').textContent = `${Math.round(fps)} FPS`;
+    };
+
+    // ── Camera stream received hook ───────────────────────────────────────────
+    // Called by VideoIngestion.js (Prompt 2) when a remote stream arrives
+    window.__phuebusOnCameraStream = () => {
+      waitingState.classList.add('hidden');
+      peerDot.className      = 'dot connected';
+      peerStatus.textContent = 'Camera: live';
+    };
+  </script>
+
+</body>
+</html>

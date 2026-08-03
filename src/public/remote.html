@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Phuebus Remote — Camera streamer and touch control surface.">
+  <!-- Prevents iOS Safari address bar from appearing on scroll -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Phuebus — Remote</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    body { overflow: hidden; touch-action: none; }
+
+    /* ── Join screen (shown until connected to a room) ─────────────────────── */
+    #joinScreen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-lg);
+      padding: var(--space-xl) var(--space-md);
+      background: var(--bg-base);
+      z-index: 100;
+    }
+    #joinScreen.hidden { display: none; }
+
+    .join-logo { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; }
+    .join-sub  { font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-muted); }
+
+    .join-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .code-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* ── Main control surface (shown after join) ───────────────────────────── */
+    #controlSurface {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-base);
+    }
+    #controlSurface.hidden { display: none; }
+
+    /* Status bar */
+    #remoteStatusBar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .status-left, .status-right { display: flex; align-items: center; gap: 8px; }
+
+    /* Placeholder body — full UI comes in Prompt 8 ─────────────────────────── */
+    #controlBody {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: var(--space-lg);
+    }
+
+    .placeholder-hint {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      text-align: center;
+      max-width: 260px;
+      line-height: 1.6;
+    }
+
+    .connected-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(74, 222, 128, 0.08);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      border-radius: var(--radius-pill);
+      font-size: 0.78rem;
+      color: var(--neon-green);
+    }
+
+    #roomCodeBadge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: 0.2em;
+      color: var(--accent-bright);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Join Screen ──────────────────────────────────────────────────────── -->
+  <div id="joinScreen">
+    <div>
+      <div class="join-logo">Phuebus</div>
+      <div class="join-sub">Remote Control</div>
+    </div>
+
+    <div class="join-form">
+      <label for="codeInput" style="font-size:0.78rem;color:var(--text-muted);letter-spacing:0.05em">
+        Session Code
+      </label>
+      <input
+        id="codeInput"
+        class="input"
+        type="text"
+        maxlength="4"
+        placeholder="XXXX"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="characters"
+        spellcheck="false"
+        inputmode="text"
+        aria-label="4-character session code"
+      >
+      <p class="code-hint">Find this code on the Display screen or at <strong style="color:var(--text-primary)">localhost/display</strong></p>
+      <button id="joinBtn" class="btn btn-primary" style="touch-action:none">Join Session</button>
+    </div>
+
+    <div id="joinStatus" style="font-size:0.78rem;color:var(--text-muted);height:20px;text-align:center"></div>
+  </div>
+
+  <!-- ── Control Surface (shown after join) ─────────────────────────────── -->
+  <div id="controlSurface" class="hidden">
+
+    <div id="remoteStatusBar">
+      <div class="status-left">
+        <span class="dot" id="remoteSocketDot"></span>
+        <span id="remoteSocketStatus">Socket</span>
+        <span style="color:var(--border)">·</span>
+        <span class="dot" id="remotePeerDot"></span>
+        <span id="remotePeerStatus">Peer</span>
+      </div>
+      <div class="status-right">
+        Code: <span id="activeCode" style="font-family:var(--font-mono);color:var(--accent-bright);font-weight:700">----</span>
+      </div>
+    </div>
+
+    <div id="controlBody">
+      <div class="connected-badge">
+        <span class="dot connected"></span>
+        Connected to Display
+      </div>
+
+      <div id="roomCodeBadge">----</div>
+
+      <p class="placeholder-hint">
+        ✅ Server + Socket.IO connected.<br>
+        Full preset grid, sliders, and camera controls arrive in Prompt 8.
+      </p>
+    </div>
+
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // ── Elements ──────────────────────────────────────────────────────────────
+    const joinScreen       = document.getElementById('joinScreen');
+    const controlSurface   = document.getElementById('controlSurface');
+    const codeInput        = document.getElementById('codeInput');
+    const joinBtn          = document.getElementById('joinBtn');
+    const joinStatus       = document.getElementById('joinStatus');
+    const remoteSocketDot  = document.getElementById('remoteSocketDot');
+    const remoteSocketStatus = document.getElementById('remoteSocketStatus');
+    const activeCode       = document.getElementById('activeCode');
+    const roomCodeBadge    = document.getElementById('roomCodeBadge');
+
+    let ROOM_CODE = null;
+
+    // ── Pre-fill code from URL param (e.g. /remote?code=ABCD) ────────────────
+    const urlParams = new URLSearchParams(window.location.search);
+    const codeFromUrl = urlParams.get('code')?.toUpperCase().trim();
+    if (codeFromUrl) {
+      codeInput.value = codeFromUrl;
+    } else {
+      // Fallback: fetch server's auto-generated code
+      fetch('/api/session')
+        .then(r => r.json())
+        .then(d => { if (!codeInput.value) codeInput.value = d.roomCode; });
+    }
+
+    // ── Socket.IO ─────────────────────────────────────────────────────────────
+    const socket = io({ transports: ['websocket'] });
+
+    socket.on('connect', () => {
+      remoteSocketDot.className       = 'dot connected';
+      remoteSocketStatus.textContent  = 'Socket: on';
+    });
+    socket.on('disconnect', () => {
+      remoteSocketDot.className       = 'dot error';
+      remoteSocketStatus.textContent  = 'Socket: off';
+    });
+
+    // ── Room state: surface peer IDs for WebRTC call (Prompt 2) ──────────────
+    socket.on('room_state', (state) => {
+      console.log('[Remote] room_state:', state);
+      // VideoIngestion.js (Prompt 2) reacts to state.displayPeerId
+    });
+
+    // ── Join flow ─────────────────────────────────────────────────────────────
+    // Auto-uppercase as user types
+    codeInput.addEventListener('input', () => {
+      codeInput.value = codeInput.value.toUpperCase().replace(/[^A-Z2-9]/g, '');
+    });
+
+    // Allow Enter key to submit
+    codeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') joinBtn.dispatchEvent(new Event('pointerdown'));
+    });
+
+    joinBtn.addEventListener('pointerdown', () => {
+      const code = codeInput.value.toUpperCase().trim();
+      if (code.length !== 4) {
+        joinStatus.textContent = 'Enter a 4-character code.';
+        joinStatus.style.color = '#f87171';
+        return;
+      }
+      joinSession(code);
+    });
+
+    function joinSession(code) {
+      ROOM_CODE = code;
+      joinStatus.textContent = 'Joining…';
+      joinStatus.style.color = 'var(--text-muted)';
+
+      socket.emit('join_room', { roomCode: code });
+
+      // Transition to control surface
+      setTimeout(() => {
+        joinScreen.classList.add('hidden');
+        controlSurface.classList.remove('hidden');
+        activeCode.textContent    = code;
+        roomCodeBadge.textContent = code;
+      }, 300);
+    }
+
+    // ── Control event emitters — wired now, used by UI in Prompt 8 ──────────
+    // These are exposed on window so the full remote UI (Prompt 8) can call them
+    window.__phuebusEmit = {
+      presetChange:     (presetId) => socket.emit('preset_change',      { roomCode: ROOM_CODE, presetId }),
+      sliderUpdate:     (param, value) => socket.emit('slider_update',  { roomCode: ROOM_CODE, param, value }),
+      engineSwitch:     (mode)  => socket.emit('engine_switch',         { roomCode: ROOM_CODE, mode }),
+      promptUpdate:     (prompt) => socket.emit('prompt_update',        { roomCode: ROOM_CODE, prompt }),
+      audioSourceChange:(deviceId) => socket.emit('audio_source_change',{ roomCode: ROOM_CODE, deviceId }),
+      fpsCap:           (fps)   => socket.emit('fps_cap_change',        { roomCode: ROOM_CODE, fps }),
+    };
+
+    // Incoming sync events (display → remote)
+    socket.on('preset_change', (d) => console.log('[Remote] preset_change (from display)', d));
+    socket.on('engine_switch', (d) => console.log('[Remote] engine_switch (from display)', d));
+  </script>
+
+</body>
+</html>
