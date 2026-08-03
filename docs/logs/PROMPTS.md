@@ -292,6 +292,34 @@
 > Ask clarifying questions IF ANY before proceeding.
 
 ### Decisions Triggered
+- [DEC-012] WebGL2 Off-Screen Downsampling for Adaptive Gain — 1x1 RenderTarget grid sampling for zero-latency CPU luma read-back.
+
+### Outputs Produced
+- `src/client/engine/shaders/AutoGainPrepass.js` — Added UV scaling and letterbox bounds check to `AUTOGAIN_FRAG`.
+- `src/client/engine/ShaderEngine.js` — Enhanced constructor options, aspect-ratio logic, and resolution modes.
+- `src/client/engine/ShaderEngine.test.js` — Updated unit tests.
+- `src/client/components/Display.jsx` — Created Left and Right sidebars with HeroUI components.
+- `src/client/components/Remote.jsx` — Added fullscreen overlay preview toggle.
+- `docs/logs/PROGRESS.md` — Updated status statistics and checklist items.
+
+### Notes
+- Standardized WebGL context recreation (AA toggle) by isolating the VideoIngestion mount lifecycle from the ShaderEngine lifecycle in React hooks.
+- Mobile rotation now auto-corrects aspect ratio using dynamic video texture vs. canvas dimensions scale factors.
+
+---
+
+## P-009 — Phase 1.4: Shader Pack (Toon + Trails + Neon)
+
+- **Date:** 2026-08-03 22:56 (IST)
+- **Phase:** Phase 1
+- **Type:** Feature
+
+### Prompt (verbatim)
+> First, Update all the relevant documentation with the progress as instructed in Agents.md and mark phase1.3 as done and verified. 
+> 
+> Next move to phase 1.4
+
+### Decisions Triggered
 - [To be filled in]
 
 ### Outputs Produced
@@ -299,6 +327,7 @@
 
 ### Notes
 - [To be filled in]
+
 
 
 
