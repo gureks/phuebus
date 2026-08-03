@@ -12,7 +12,7 @@
 | Phase | Prompts | Done | In Progress | Pending | Completion |
 |---|---|---|---|---|---|
 | Planning | — | ✅ | — | — | **100%** |
-| Phase 1 | 10 | 1 | 0 | 9 | **10%** |
+| Phase 1 | 10 | 2 | 0 | 8 | **20%** |
 | Phase 2 | 6 | 0 | 0 | 6 | **0%** |
 | Phase 3 | 5 | 0 | 0 | 5 | **0%** |
 
@@ -46,7 +46,7 @@
 | # | Prompt | Status | Commit | Notes |
 |---|---|---|---|---|
 | P1-1 | Server scaffold (Express + Socket.IO + PeerServer) | ✅ Done | `d470590` | Express HTML routes extension, websocket-only transports, embedded PeerJS |
-| P1-2 | Video ingestion (UVC + WebRTC) | ⬜ Pending | — | Depends on P1-1 |
+| P1-2 | Video ingestion (UVC + WebRTC) | ✅ Done | `cb57ac5` | PeerJS WebRTC stream + local UVC switcher + React preview |
 | P1-3 | Three.js shader engine foundation | ⬜ Pending | — | Depends on P1-2 |
 | P1-4 | Shader pack (Toon + Trails + Neon) | ⬜ Pending | — | Depends on P1-3 |
 | P1-5 | Audio reactivity engine | ⬜ Pending | — | Depends on P1-3 |
