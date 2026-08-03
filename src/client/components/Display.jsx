@@ -3,10 +3,13 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import VideoIngestion from '../engine/VideoIngestion';
 import { ShaderEngine } from '../engine/ShaderEngine';
+import { AudioAnalyzer } from '../engine/AudioAnalyzer';
+import { PoseTracker } from '../engine/PoseTracker';
 import { Card, Button, Spinner, Switch, Slider, Select, Label, ListBox } from '@heroui/react';
 import { 
   Monitor, Camera, Wifi, Settings, LogOut, VideoOff, 
-  Sliders, Shield, RefreshCw, Layers, SlidersHorizontal, Info, Eye, EyeOff
+  Sliders, Shield, RefreshCw, Layers, SlidersHorizontal, Info, Eye, EyeOff,
+  Mic, Activity
 } from 'lucide-react';
 
 function Display() {
@@ -48,6 +51,12 @@ function Display() {
   const [audioDispersionSensitivity, setAudioDispersionSensitivity] = useState(2.0);
   const [motionFlowScale, setMotionFlowScale] = useState(5.0);
   
+  // Audio & Pose states (Phase 1.5 + 1.6)
+  const [audioDevices, setAudioDevices] = useState([]);
+  const [selectedAudioDevice, setSelectedAudioDevice] = useState(null);
+  const [audioActive, setAudioActive] = useState(false);
+  const [poseTrackingEnabled, setPoseTrackingEnabled] = useState(false);
+
   // UI controls
   const [sidebarsOpen, setSidebarsOpen] = useState(true);
 
@@ -55,6 +64,8 @@ function Display() {
   const socketRef = useRef(null);
   const ingestionRef = useRef(null);
   const engineRef = useRef(null);
+  const audioAnalyzerRef = useRef(null);
+  const poseTrackerRef = useRef(null);
   
   const renderCanvasRef = useRef(null);
   const monitorVideoRef = useRef(null); // Ref for raw camera stream monitoring preview
@@ -125,6 +136,10 @@ function Display() {
       socket.disconnect();
       ingestion.destroy();
       setActiveStream(null);
+      // Enumerate audio inputs for the audio device selector
+      navigator.mediaDevices.enumerateDevices().then(devices => {
+        setAudioDevices(devices.filter(d => d.kind === 'audioinput'));
+      }).catch(() => {});
     };
   }, [roomCode]);
 
@@ -236,21 +251,33 @@ function Display() {
     }
   }, [engineMode, cameraStatus]);
 
-  // Hook 4: Simulated audio energy (stub for Phase 1.5 real AudioAnalyzer)
-  // Drives uBass/uMid to test audio-reactive uniforms without mic access
+  // Hook 4: Real AudioAnalyzer feeding ShaderEngine uniforms each rAF
+  // Falls back gracefully when no device is selected yet
   useEffect(() => {
+    // Instantiate once
+    const analyzer = new AudioAnalyzer();
+    audioAnalyzerRef.current = analyzer;
+
     let animId = null;
+
     const tick = (timestamp) => {
+      analyzer.tick();
       if (engineRef.current) {
-        const t = timestamp * 0.001;
-        const bassVal = 0.3 + Math.max(0, Math.sin(t * 4.5)) * 0.7;
-        const midVal  = 0.2 + Math.max(0, Math.sin(t * 7.0)) * 0.5;
-        engineRef.current.setAudioData(bassVal, midVal, 0.0);
+        engineRef.current.setAudioData(
+          analyzer.getBassEnergy(),
+          analyzer.getMidEnergy(),
+          analyzer.getHighEnergy()
+        );
       }
       animId = requestAnimationFrame(tick);
     };
     animId = requestAnimationFrame(tick);
-    return () => { if (animId) cancelAnimationFrame(animId); };
+
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+      analyzer.destroy();
+      audioAnalyzerRef.current = null;
+    };
   }, []);
 
   // Hook 5: Propagate new revised shader params
@@ -269,6 +296,53 @@ function Display() {
   useEffect(() => {
     if (engineRef.current) engineRef.current.setMotionFlowScale(motionFlowScale);
   }, [motionFlowScale]);
+
+  // Hook 6: Audio device selection → open getUserMedia on the chosen device
+  useEffect(() => {
+    if (!selectedAudioDevice || !audioAnalyzerRef.current) return;
+    audioAnalyzerRef.current.setInputDevice(selectedAudioDevice)
+      .then(() => setAudioActive(true))
+      .catch((err) => {
+        console.warn('[Display] Audio device open failed:', err);
+        setAudioActive(false);
+      });
+  }, [selectedAudioDevice]);
+
+  // Hook 7: PoseTracker lifecycle — init when enabled, destroy when disabled
+  useEffect(() => {
+    if (poseTrackingEnabled) {
+      const tracker = new PoseTracker();
+      poseTrackerRef.current = tracker;
+
+      tracker.init().then(() => {
+        console.log('[Display] PoseTracker ready');
+      });
+
+      let animId = null;
+      const poseLoop = (timestamp) => {
+        if (poseTrackerRef.current?.isInitialized && hiddenVideoRef.current && engineRef.current) {
+          const t0 = performance.now();
+          const landmarks = poseTrackerRef.current.detectFrame(hiddenVideoRef.current, timestamp);
+          const elapsed = performance.now() - t0;
+          if (elapsed > 8) {
+            console.warn(`[PoseTracker] detectFrame took ${elapsed.toFixed(1)}ms (budget: 8ms)`);
+          }
+          engineRef.current.setLandmarks(landmarks);
+        }
+        animId = requestAnimationFrame(poseLoop);
+      };
+      animId = requestAnimationFrame(poseLoop);
+
+      return () => {
+        if (animId) cancelAnimationFrame(animId);
+        tracker.destroy();
+        poseTrackerRef.current = null;
+        if (engineRef.current) engineRef.current.setLandmarks(null);
+      };
+    } else {
+      if (engineRef.current) engineRef.current.setLandmarks(null);
+    }
+  }, [poseTrackingEnabled]);
 
   // Handle local camera selection via HeroUI Select
   const handleCameraChangeDirect = async (deviceId) => {
@@ -337,6 +411,43 @@ function Display() {
                   </ListBox>
                 </Select.Popover>
               </Select>
+            </div>
+          </Card>
+
+          {/* Audio Input Card */}
+          <Card className="bg-zinc-950/80 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-zinc-300 font-bold text-xs uppercase tracking-wider">
+              <Mic className="size-4 text-zinc-400" />
+              Audio Input
+              {audioActive && <span className="ml-auto text-[8px] bg-success/20 text-success px-1.5 py-0.5 rounded animate-pulse font-semibold">LIVE</span>}
+            </div>
+
+            <div className="space-y-1">
+              <Select
+                placeholder="Select microphone / line-in"
+                value={selectedAudioDevice ?? ''}
+                onChange={(key) => setSelectedAudioDevice(key || null)}
+              >
+                <Select.Trigger className="w-full bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-xs">
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover className="bg-zinc-900 border-zinc-800">
+                  <ListBox>
+                    {audioDevices.length === 0 && (
+                      <ListBox.Item id="" textValue="No audio devices found">
+                        🎤 No audio devices found
+                      </ListBox.Item>
+                    )}
+                    {audioDevices.map((device) => (
+                      <ListBox.Item key={device.deviceId} id={device.deviceId} textValue={device.label || 'Microphone'}>
+                        🎤 {device.label || `Microphone (${device.deviceId.slice(0, 6)})`}
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+              <p className="text-[9px] text-zinc-500">Audio is analyzed locally — no cloud processing</p>
             </div>
           </Card>
 
@@ -800,6 +911,34 @@ function Display() {
                 </Slider>
               </div>
             )}
+          </Card>
+
+          {/* Pose Tracking Card */}
+          <Card className="bg-zinc-950/80 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-zinc-300 font-bold text-xs uppercase tracking-wider">
+              <Activity className="size-4 text-zinc-400" />
+              Pose Tracking
+            </div>
+
+            <div className="flex items-center justify-between py-1">
+              <span className="text-[11px] text-zinc-300 font-medium">Enable MediaPipe</span>
+              <Switch
+                isSelected={poseTrackingEnabled}
+                onChange={setPoseTrackingEnabled}
+                size="sm"
+              >
+                <Switch.Content>
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                </Switch.Content>
+              </Switch>
+            </div>
+            <p className="text-[9px] text-zinc-500 -mt-1">
+              {poseTrackingEnabled
+                ? 'Skeleton landmarks fed to NeonAura shader in real-time'
+                : 'Disabled — NeonAura uses edge convolution only (better perf)'}
+            </p>
           </Card>
 
           {/* Quick Page Exit */}

@@ -35,6 +35,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    server: {
+      deps: {
+        // @mediapipe/tasks-vision is loaded dynamically at runtime via CDN;
+        // exclude it from Vite's static import analysis during tests.
+        external: ['@mediapipe/tasks-vision']
+      }
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
