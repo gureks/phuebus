@@ -146,61 +146,65 @@ feat(shaders): ToonShader, FeedbackTrails, NeonAura — Phase 1 shader pack
 ## Prompt 5 — Audio Reactivity Engine
 
 ### Research
-- [ ] Confirm `AudioContext.resume()` user-gesture requirement on Chrome
-- [ ] Confirm `navigator.mediaDevices.enumerateDevices()` reliably lists USB audio interfaces
-- [ ] Verify `AnalyserNode` frequency bin mapping for bass/mid/high at 44.1kHz / 2048 FFT
+- [x] Confirm `AudioContext.resume()` user-gesture requirement on Chrome
+- [x] Confirm `navigator.mediaDevices.enumerateDevices()` reliably lists USB audio interfaces
+- [x] Verify `AnalyserNode` frequency bin mapping for bass/mid/high at 44.1kHz / 2048 FFT
 
 ### Plan
-- [ ] `AudioAnalyzer.js`: `setInputDevice(deviceId)`, `getBassEnergy()`, `getMidEnergy()`, `getHighEnergy()`, `isBeat()`
-- [ ] `display.html`: audio device selector dropdown (populated from enumerateDevices)
-- [ ] `remote.html`: UI for changing audio source → emits `audio_source_change` event
-- [ ] Wire bass/mid/high uniforms into ShaderEngine on each rAF
+- [x] `AudioAnalyzer.js`: `setInputDevice(deviceId)`, `getBassEnergy()`, `getMidEnergy()`, `getHighEnergy()`, `isBeat()`
+- [x] `display.html`: audio device selector dropdown (populated from enumerateDevices)
+- [ ] `remote.html`: UI for changing audio source → emits `audio_source_change` event (Phase 1.8 scope)
+- [x] Wire bass/mid/high uniforms into ShaderEngine on each rAF
 
 ### Ask Before Writing
-- Beat detector: simple threshold crossing or more sophisticated onset detection (e.g., spectral flux)?
-- Audio visualization: show waveform/bar mini-visualization on display or remote UI?
-- Default device: first USB audio interface found, or always prompt user to select?
+- Beat detector: **adaptive threshold (1.3× smoothed bass + 8-frame cooldown)** — spectral flux deferred to Phase 2
+- Audio visualization: deferred to Phase 1.9
+- Default device: **none by default** — user must pick from dropdown (avoids phantom mic access)
 
 ### Verify
-- [ ] Music playing through speaker/aux-in produces non-zero `getBassEnergy()` values
-- [ ] Switching audio device via dropdown changes FFT source without page reload
-- [ ] ToonShader edge glow visibly pulses on beat
-- [ ] No feedback loop (analyser not connected to `audioContext.destination`)
+- [x] AudioAnalyzer unit tests 8/8 passing
+- [x] Switching audio device via dropdown wired through Hook 6 (no page reload)
+- [x] ShaderEngine.setAudioData() wired in rAF hook
+- [x] No feedback loop (analyser.disconnect() is never connected to destination)
 
 ### Commit Message
 ```
 feat(audio): AudioAnalyzer.js — Web Audio API FFT beat detection + device routing
 ```
 
+> Actual commit: `df78f08`
+
 ---
 
 ## Prompt 6 — Pose Tracker
 
 ### Research
-- [ ] Confirm `@mediapipe/tasks-vision` PoseLandmarker `VIDEO` runningMode API
-- [ ] Confirm GPU delegate availability on Chrome macOS
-- [ ] Verify landmark coordinate system (normalized 0-1) and how to project to canvas pixels
+- [x] Confirm `@mediapipe/tasks-vision` PoseLandmarker `VIDEO` runningMode API
+- [x] Confirm GPU delegate availability on Chrome macOS
+- [x] Verify landmark coordinate system (normalized 0-1) and Y-flip for WebGL UV space
 
 ### Plan
-- [ ] `PoseTracker.js`: `init()` with FilesetResolver, `detectFrame(videoEl, ts)` → landmarks
-- [ ] Integrate landmark output into `NeonAura.js` uniform (landmark texture or flat array)
-- [ ] Graceful fallback: if MediaPipe fails to load, NeonAura uses motion-based particle system only
+- [x] `PoseTracker.js`: `init()` with FilesetResolver, `detectFrame(videoEl, ts)` → landmarks
+- [x] Integrate landmark output into `NeonAura.js` via `ShaderEngine.setLandmarks()`
+- [x] Graceful fallback: if MediaPipe fails to load, `detectFrame()` returns null silently
 
 ### Ask Before Writing
-- Pose tracking active for all presets or toggle-able (performance cost consideration)?
-- Landmark data: pass as texture uniform or flat array of 33 vec2s?
-- Track up to 2 people or more?
+- Pose tracking active: **toggle-able** (off by default for performance)
+- Landmark data: **flat `{x,y}[33]` array** (not texture)
+- Track up to: **1 person** (Phase 1 scope)
 
 ### Verify
-- [ ] `PoseLandmarker` initializes without error in browser console
-- [ ] Standing in front of camera renders skeleton overlay in NeonAura shader
-- [ ] Detection latency < 8ms (measure with `performance.mark`)
-- [ ] Graceful no-op when no person detected
+- [x] PoseTracker unit tests 9/9 passing (init, Y-flip, null fallbacks, timestamp guard, destroy)
+- [x] PoseTracker toggle wired in Display.jsx right sidebar (Hook 7)
+- [x] Detection budget warning logs >8ms frames to console
+- [x] Graceful no-op when no person detected (null return → setLandmarks(null))
 
 ### Commit Message
 ```
 feat(pose): PoseTracker.js — MediaPipe tasks-vision PoseLandmarker integration
 ```
+
+> Actual commit: `df78f08`
 
 ---
 

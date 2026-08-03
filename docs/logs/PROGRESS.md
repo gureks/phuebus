@@ -12,7 +12,7 @@
 | Phase | Prompts | Done | In Progress | Pending | Completion |
 |---|---|---|---|---|---|
 | Planning | — | ✅ | — | — | **100%** |
-| Phase 1 | 10 | 3 | 0 | 7 | **30%** |
+| Phase 1 | 10 | 6 | 0 | 4 | **60%** |
 | Phase 2 | 6 | 0 | 0 | 6 | **0%** |
 | Phase 3 | 5 | 0 | 0 | 5 | **0%** |
 
@@ -49,8 +49,8 @@
 | P1-2 | Video ingestion (UVC + WebRTC) | ✅ Done | `cb57ac5` | PeerJS WebRTC stream + local UVC switcher + React preview |
 | P1-3 | Three.js shader engine foundation | ✅ Done | `17f39df` | Three.js WebGL2 pipeline with 1x1 RenderTarget luma downsampling & adaptive auto-gain pre-pass |
 | P1-4 | Shader pack (Toon + Trails + Neon) | ✅ Done | `0af9d5c` | Complete shader pack including Sobel toon contours, ping-pong feedback trails, and skeletal NeonAura |
-| P1-5 | Audio reactivity engine | ⬜ Pending | — | Depends on P1-3 |
-| P1-6 | Pose tracker (MediaPipe) | ⬜ Pending | — | Depends on P1-4 |
+| P1-5 | Audio reactivity engine | ✅ Done | `df78f08` | AudioAnalyzer: Web Audio FFT, adaptive beat detection, device routing; real audio feeds ShaderEngine uniforms |
+| P1-6 | Pose tracker (MediaPipe) | ✅ Done | `df78f08` | PoseTracker: tasks-vision PoseLandmarker GPU delegate, Y-flip, timestamp guard; toggle switch in Display sidebar |
 | P1-7 | Engine router + preset system | ⬜ Pending | — | Depends on P1-3,4,5,6 |
 | P1-8 | Mobile remote UI | ⬜ Pending | — | Depends on P1-7 |
 | P1-9 | Display host UI | ⬜ Pending | — | Depends on P1-7 |

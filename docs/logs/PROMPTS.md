@@ -320,15 +320,53 @@
 > Next move to phase 1.4
 
 ### Decisions Triggered
-- [To be filled in]
+- [DEC-004] ToonShader outline mode — multiply-mode comic black (default), hue audio-sensitive via `uAudioHueSensitivity`
+- [DEC-005] NeonAura approach — Sobel edge-convolution silhouette on 5% dark bg (no skeleton overlay by default)
+- [DEC-006] FeedbackTrails dispersion — bass-reactive wave dispersion + optical-flow motion-vector push
 
 ### Outputs Produced
-- [To be filled in]
+- `src/client/engine/shaders/ToonShader.js` — rebuilt with multiply outlines, audio hue shift, outline mode uniform
+- `src/client/engine/shaders/NeonAura.js` — rebuilt with Sobel edge convolution, neon colour pulse
+- `src/client/engine/shaders/FeedbackTrails.js` — rebuilt with optical flow advection + bass-kick dispersion
+- `src/client/engine/ShaderEngine.js` — added `prevFrameTarget`, new uniforms, updated pipeline
+- `src/client/engine/ShaderEngine.test.js` — tests updated for new uniforms and pipeline
+- `src/client/components/Display.jsx` — toon outline mode switch, audio hue sensitivity slider, Bass Kick Dispersion slider, Motion Flow Push slider; replaced CPU skeleton sim with real audio sim RAF hook
+- `docs/logs/PROGRESS.md` — P1-4 marked complete
+- Commits: `0af9d5c`, `03b42ac`, `4ad179d`
 
 ### Notes
-- [To be filled in]
+- glowRadius default changed from 0.005 to 0.08 to match Sobel threshold semantics
+- Skeleton simulator removed from Display (was Phase 1 stub, replaced by real AudioAnalyzer + PoseTracker in P-010)
 
+---
 
+## P-010 — Phase 1.5 + 1.6: AudioAnalyzer + PoseTracker (Parallel)
 
+- **Date:** 2026-08-03 00:54 (IST)
+- **Phase:** Phase 1
+- **Type:** Feature
+
+### Prompt (verbatim)
+> continue where the process was interrupted
+
+### Decisions Triggered
+- [DEC-007] Beat detection strategy — adaptive threshold crossing (1.3× smoothed bass + 8-frame cooldown), not spectral flux
+- [DEC-008] Pose tracking default — disabled by default (GPU cost); user-toggleable switch in right sidebar
+- [DEC-009] Landmark format — flat `{x,y}[33]` array with Y-flip for WebGL UV space
+- [DEC-010] Audio default device — none selected by default; user must pick from dropdown (avoids phantom mic access)
+
+### Outputs Produced
+- `src/client/engine/AudioAnalyzer.js` [NEW] — getUserMedia pipeline, FFT 2048, bass/mid/high energy extraction, adaptive beat detector, destroy()
+- `src/client/engine/AudioAnalyzer.test.js` [NEW] — 8 tests: energy normalization, beat threshold, cooldown, device switching, cleanup
+- `src/client/engine/PoseTracker.js` [NEW] — MediaPipe tasks-vision PoseLandmarker (GPU, VIDEO mode), Y-flip, timestamp guard, graceful fallback
+- `src/client/engine/PoseTracker.test.js` [NEW] — 9 tests: init, Y-flip, null fallbacks, duplicate timestamps, destroy
+- `src/client/components/Display.jsx` [MODIFIED] — real AudioAnalyzer RAF hook; audio device dropdown card; pose tracking toggle card; Hook 6 (device switching); Hook 7 (pose lifecycle)
+- `src/vite.config.js` [MODIFIED] — added `server.deps.external` for @mediapipe/tasks-vision
+- Commit: `df78f08`
+
+### Notes
+- `@mediapipe/tasks-vision` installed as devDependency (needed for test resolution); dynamic import keeps it out of main bundle chunk
+- Vite auto-splits mediapipe WASM into `vision_bundle` chunk in production build
+- Tests: 25/25 passing
 
 
