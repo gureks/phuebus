@@ -50,8 +50,8 @@ function Remote() {
     setJoinStatus('Connecting...');
     addLog(`Initiating connection for room: ${roomCode}`);
 
-    // Connect Socket.IO with fallback to polling for high mobile compatibility
-    const socket = io({ transports: ['websocket', 'polling'] });
+    // Connect Socket.IO with default upgrade path
+    const socket = io();
     socketRef.current = socket;
 
     socket.on('connect', () => {

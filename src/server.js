@@ -61,7 +61,6 @@ const httpServer = http.createServer(app);
 // ── Socket.IO ─────────────────────────────────────────────────────────────────
 // Force WebSocket transport — eliminates HTTP polling overhead for <10ms LAN latency
 const io = new Server(httpServer, {
-  transports: ['websocket', 'polling'],
   cors: { origin: '*' },
 });
 

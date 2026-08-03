@@ -28,8 +28,8 @@ function Display() {
   const hiddenVideoRef = useRef(null);  // Hidden video element for Three.js VideoTexture input
 
   useEffect(() => {
-    // Connect to Socket.IO using WebSocket transport
-    const socket = io({ transports: ['websocket'] });
+    // Connect to Socket.IO using default transports upgrade path
+    const socket = io();
     socketRef.current = socket;
 
     socket.on('connect', () => {
