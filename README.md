@@ -109,7 +109,7 @@ phuebus/
 
 ## Local Development Setup
 
-> ⚠️ Code scaffold not yet started. See [PLAN_PHASE1.md](PLAN_PHASE1.md) — begin with Prompt 1.
+> ⚠️ Code scaffold not yet started. See [docs/plan/PHASE1.md](docs/plan/PHASE1.md) — begin with Prompt 1.
 
 ```bash
 # Once src/ is populated:

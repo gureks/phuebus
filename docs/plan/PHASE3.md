@@ -1,7 +1,7 @@
 # PLAN — Phase 3: Self-Serve App, Distribution & Commercial Model
 
 > **Phase:** 3 of 3  
-> **Pre-condition:** Phase 2 fully complete and verified per PLAN_PHASE2.md exit criteria.  
+> **Pre-condition:** Phase 2 fully complete and verified per docs/plan/PHASE2.md exit criteria.  
 > **Goal:** Package Phuebus for self-serve commercial distribution — Tauri desktop app (one-time license) and Web SaaS cloud deployment (monthly subscription) with a downloadable Model Store.  
 > **Flow for each prompt:** Research → Plan → Ask for choices/decisions → Write code → Verify → Commit → Push
 

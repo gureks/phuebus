@@ -69,9 +69,9 @@
 
 ### Outputs Produced
 - `SPEC.md` — Created (Sections 1–4: Architecture, Module Contracts, Framework Reference, Implementation Guidance)
-- `PLAN_PHASE1.md` — Created (10 structured prompts with Research/Plan/Ask/Verify/Commit)
-- `PLAN_PHASE2.md` — Created (6 structured prompts for AI diffusion engine)
-- `PLAN_PHASE3.md` — Created (5 structured prompts for distribution/SaaS)
+- `docs/plan/PHASE1.md` — Created (10 structured prompts with Research/Plan/Ask/Verify/Commit)
+- `docs/plan/PHASE2.md` — Created (6 structured prompts for AI diffusion engine)
+- `docs/plan/PHASE3.md` — Created (5 structured prompts for distribution/SaaS)
 - `AGENTS.md` — Created (mandatory 7-stage dev workflow rules)
 
 ### Notes
@@ -110,3 +110,39 @@
 ### Notes
 - Git repository initialized with initial commit covering P-001 outputs
 - No code written — documentation pass only per user guardrail instruction #3
+
+---
+
+## P-003 — Repo Restructure: Move Plan Files + Phase 1 Kickoff
+
+- **Date:** 2026-08-03 20:19 (IST)
+- **Phase:** Planning → Phase 1
+- **Type:** Refactor + Documentation
+
+### Prompt (verbatim)
+> I've updated README with changed dir structure for plan_phase* files. Update the repo accordingly.
+>
+> Added the git origin manually for future usage.
+>
+> Now we can move to scaffolding phase 1.
+
+### Decisions Triggered
+- No new architectural decisions — structural refactor only
+
+### Outputs Produced
+- `PLAN_PHASE1.md` → `docs/plan/PHASE1.md` — Moved
+- `PLAN_PHASE2.md` → `docs/plan/PHASE2.md` — Moved
+- `PLAN_PHASE3.md` → `docs/plan/PHASE3.md` — Moved
+- `AGENTS.md` — Updated (plan file paths in Stage 1.1 and logging table)
+- `README.md` — Updated (stale dev setup link fixed)
+- `docs/plan/PHASE2.md` — Updated (pre-condition ref updated)
+- `docs/plan/PHASE3.md` — Updated (pre-condition ref updated)
+- `docs/logs/PROGRESS.md` — Updated (plan file task names updated; P-003 change log entry)
+- `docs/logs/PROMPTS.md` — Updated (this entry; P-002 output list updated)
+- `docs/logs/DECISIONS.md` — Updated (PLAN_PHASE3 ref → docs/plan/PHASE3.md)
+- Commit + push to `origin/main`
+
+### Notes
+- git remote `origin` set to `https://github.com/gureks/phuebus.git` by user (already pushed)
+- Zero stale `PLAN_PHASE*` references confirmed after restructure
+- Phase 1 scaffolding begins next prompt

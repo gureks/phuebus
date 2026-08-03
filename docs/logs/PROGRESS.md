@@ -26,9 +26,9 @@
 | Research frameworks via Context7 MCP | ✅ Done | 2026-08-03 | Three.js, Socket.IO, PeerJS queried |
 | Web research: MediaPipe, Web Audio API | ✅ Done | 2026-08-03 | tasks-vision confirmed as current SDK |
 | Write SPEC.md Sections 1–4 | ✅ Done | 2026-08-03 | Framework reference + implementation guidance |
-| Write PLAN_PHASE1.md (10 prompts) | ✅ Done | 2026-08-03 | Research/Plan/Ask/Verify/Commit per prompt |
-| Write PLAN_PHASE2.md (6 prompts) | ✅ Done | 2026-08-03 | AI diffusion engine plan |
-| Write PLAN_PHASE3.md (5 prompts) | ✅ Done | 2026-08-03 | Distribution/SaaS plan |
+| Create docs/plan/PHASE1.md (10 prompts) | ✅ Done | 2026-08-03 | Research/Plan/Ask/Verify/Commit per prompt |
+| Create docs/plan/PHASE2.md (6 prompts) | ✅ Done | 2026-08-03 | AI diffusion engine plan |
+| Create docs/plan/PHASE3.md (5 prompts) | ✅ Done | 2026-08-03 | Distribution/SaaS plan |
 | Write AGENTS.md (dev workflow rules) | ✅ Done | 2026-08-03 | 7-stage mandatory workflow |
 | Structure repository (README, docs/) | ✅ Done | 2026-08-03 | See P-002 |
 | Create decision log (DECISIONS.md) | ✅ Done | 2026-08-03 | DEC-001 to DEC-007 populated |
@@ -135,3 +135,4 @@
 |---|---|---|
 | 2026-08-03 | Planning phase completed; SPEC, PLAN, AGENTS documents created | Agent (P-001) |
 | 2026-08-03 | Repo structured; DECISIONS, PROMPTS, PROGRESS logs created and populated; FRAMEWORKS research doc added; AGENTS.md enhanced | Agent (P-002) |
+| 2026-08-03 | PLAN files moved to docs/plan/; all cross-references updated; git remote origin set; Phase 1 scaffolding begins | Agent (P-003) |

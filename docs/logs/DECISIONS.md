@@ -137,7 +137,7 @@ PeerJS reduces the WebRTC peer connection to `peer.call(id, stream)` / `peer.on(
 
 ### Consequences
 - Phase 1: LAN-only — no TURN server needed
-- Phase 3 (SaaS): will require adding public STUN/TURN for NAT traversal (logged in PLAN_PHASE3.md)
+- Phase 3 (SaaS): will require adding public STUN/TURN for NAT traversal (logged in docs/plan/PHASE3.md)
 - Mobile must use HTTPS or `localhost` for `getUserMedia` — self-signed cert via `mkcert` needed for iPhone Safari
 
 ### References

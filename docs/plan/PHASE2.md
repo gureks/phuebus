@@ -1,7 +1,7 @@
 # PLAN — Phase 2: Hybrid Real-Time Diffusion & Model Switching
 
 > **Phase:** 2 of 3  
-> **Pre-condition:** Phase 1 fully complete and verified per PLAN_PHASE1.md exit criteria.  
+> **Pre-condition:** Phase 1 fully complete and verified per docs/plan/PHASE1.md exit criteria.  
 > **Goal:** Seamlessly integrate a local AI diffusion engine (SDXL Turbo / LCM on Apple Silicon MPS/MLX) and a cloud StreamDiffusion GPU option, hot-swappable with the Phase 1 WebGL shader engine at runtime.  
 > **Flow for each prompt:** Research → Plan → Ask for choices/decisions → Write code → Verify → Commit → Push
 

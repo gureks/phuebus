@@ -36,7 +36,7 @@ Before writing a single line of code, the agent MUST:
 
 ### 1.1 — Read Existing Context
 1. **Check SPEC.md** — Review the relevant section(s) for the task (framework refs, module contracts, perf targets).
-2. **Check the PLAN file** for the current phase — find the exact prompt and read its Research checklist.
+2. **Check the PLAN file** for the current phase (`docs/plan/PHASE1.md`, `docs/plan/PHASE2.md`, `docs/plan/PHASE3.md`) — find the exact prompt and read its Research checklist.
 3. **Read existing source files** before modifying them — never assume file contents.
 
 ### 1.2 — Fetch Latest API Docs
@@ -238,7 +238,7 @@ The agent MUST maintain the following log files throughout every session:
 | `docs/logs/DECISIONS.md` | After any Stage 3 answer or research-driven choice | New DEC-NNN entry using the template (context, options table, rationale, consequences) |
 | `docs/logs/PROGRESS.md` | After every Stage 6 COMMIT | Mark prompt row `✅`, fill commit hash, update phase completion % |
 | `docs/research/FRAMEWORKS.md` | During Stage 1 whenever a framework/tool choice is evaluated | Add scored alternatives table for the new decision |
-| Phase PLAN files | After the last prompt of each phase | Mark completed items `[x]` |
+| `docs/plan/PHASE*.md` | After the last prompt of each phase | Mark completed items `[x]` |
 | `SPEC.md` | When implementation diverges from spec | Update the spec and add a `> Note: Changed in P-NNN` callout |
 
 ---
