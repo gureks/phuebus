@@ -234,9 +234,12 @@
 - `src/client/index.css` — Removed all custom classes, glow utilities, and style variables
 - `src/client/components/` (Home, Display, Remote) — Cleaned styles to use strictly default HeroUI classes
 - `AGENTS.md` — Appended strict guidelines for HeroUI styling and automated testing practices
-- `.gitignore` — Ignored coverage directories
+- `.gitignore` — Ignored coverage directories and local certs/ folder
+- `src/generate-certs.js` — Self-signed SSL certificate generation script
 
 ### Notes
+- Enabled self-signed SSL certificate generation on server startup, converting the host Express process to run as an **HTTPS secure context**. Bypasses mobile browser camera blockers for LAN IP connections (`http://192.168.x.x` → `https://192.168.x.x`).
+- Configured PeerJS client in `VideoIngestion.js` to dynamically use SSL options (`secure: true`, `wss` protocol, port `443` default fallback) when the browser protocol is `https:`.
 - Removed the explicit `transports: ['websocket']` constraint completely on both the backend and client setups. This restores Socket.IO's default polling-to-websocket upgrade protocol, resolving local network security blocks (such as iOS Local Network Privacy) that trigger `websocket error` on mobile connections.
 - Added on-screen log outputs inside `Remote.jsx` to let users see exact client errors on mobile.
 - Enforced main module check on server startup to allow clean testing imports without port binding conflicts.
