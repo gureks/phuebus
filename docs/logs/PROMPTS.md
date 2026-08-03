@@ -369,4 +369,31 @@
 - Vite auto-splits mediapipe WASM into `vision_bundle` chunk in production build
 - Tests: 25/25 passing
 
+---
 
+## P-011 — Complete All Remaining Phases (P1-7 through P3-5)
+
+- **Date:** 2026-08-04 00:58 (IST)
+- **Phase:** Phase 1 → Phase 2 → Phase 3
+- **Type:** Feature / Architecture / Distribution
+
+### Prompt (verbatim)
+> Go ahead and complete rest of all the phases. Manual verification for P1-5 onwards will be done all at once.
+> Ask clarifying questions if and when they arise.
+
+### Decisions Triggered
+- [DEC-011] P1-7 preset storage — hardcoded JS objects, no YAML (user-saved presets deferred to Phase 2)
+- [DEC-012] P1-7 engine switch — hard cut (no crossfade in Phase 1)
+- [DEC-013] P1-8 bottom sheet — 55% viewport height when open
+- [DEC-014] P1-9 HUD — auto-hide after 4s, reappear on mouse move
+- [DEC-015] P1-9 QR code — qrcode npm package (3KB)
+- [DEC-016] P1-10 HTTPS — mkcert self-signed cert generated at server start
+- [DEC-017] P2-1 ControlNet — LineArt conditioning (stylized, projection-oriented)
+- [DEC-018] P2-3 interpolation — linear blend (< 1ms), RIFE deferred
+- [DEC-019] P3-1 platform — macOS first, Windows follow-up
+
+### Outputs Produced
+- (to be filled in as work completes)
+
+### Notes
+- Manual verification deferred to single end-to-end session per user request

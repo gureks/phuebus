@@ -5,6 +5,11 @@ import VideoIngestion from '../engine/VideoIngestion';
 import { ShaderEngine } from '../engine/ShaderEngine';
 import { AudioAnalyzer } from '../engine/AudioAnalyzer';
 import { PoseTracker } from '../engine/PoseTracker';
+import { EngineRouter } from '../engine/EngineRouter';
+import { DiffusionEngine } from '../engine/DiffusionEngine';
+import { PRESETS, PRESET_MAP } from '../engine/presets';
+import { Recorder } from '../engine/Recorder';
+import QRCode from 'qrcode';
 import { Card, Button, Spinner, Switch, Slider, Select, Label, ListBox } from '@heroui/react';
 import { 
   Monitor, Camera, Wifi, Settings, LogOut, VideoOff, 
@@ -57,6 +62,12 @@ function Display() {
   const [audioActive, setAudioActive] = useState(false);
   const [poseTrackingEnabled, setPoseTrackingEnabled] = useState(false);
 
+  // Presets, QR, HUD, and Recorder states (Phase 1.7 - 1.9)
+  const [activePresetId, setActivePresetId] = useState('default');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [hudVisible, setHudVisible] = useState(true);
+  const [recordingActive, setRecordingActive] = useState(false);
+
   // UI controls
   const [sidebarsOpen, setSidebarsOpen] = useState(true);
 
@@ -66,10 +77,99 @@ function Display() {
   const engineRef = useRef(null);
   const audioAnalyzerRef = useRef(null);
   const poseTrackerRef = useRef(null);
+  const routerRef = useRef(null);
+  const diffusionEngineRef = useRef(null);
+  const recorderRef = useRef(null);
   
   const renderCanvasRef = useRef(null);
   const monitorVideoRef = useRef(null); // Ref for raw camera stream monitoring preview
   const hiddenVideoRef = useRef(null);  // Hidden video element for Three.js VideoTexture input
+
+  const applyPresetById = (presetId, emitToSocket = true) => {
+    const preset = PRESET_MAP[presetId];
+    if (!preset) return;
+
+    setActivePresetId(presetId);
+    
+    // Apply parameters to React state (so UI sliders/switches reflect it)
+    setActiveShader(preset.activeShader);
+    setTrailsEnabled(preset.trailsEnabled);
+    setEdgeSensitivity(preset.edgeSensitivity);
+    setColorSteps(preset.colorSteps);
+    setDecay(preset.decay);
+    setDispersion(preset.dispersion);
+    setGlowRadius(preset.glowRadius);
+    setHue(preset.hue);
+    setToonOutlineMode(preset.toonOutlineMode);
+    setAudioHueSensitivity(preset.audioHueSensitivity);
+    setAudioDispersionSensitivity(preset.audioDispersionSensitivity);
+    setMotionFlowScale(preset.motionFlowScale);
+    setEngineMode(preset.engineMode);
+
+    // Apply to EngineRouter
+    if (routerRef.current) {
+      routerRef.current.applyPreset(preset);
+    }
+
+    if (emitToSocket && socketRef.current) {
+      socketRef.current.emit('preset_change', { roomCode, presetId });
+    }
+  };
+
+  const startRecording = () => {
+    if (!renderCanvasRef.current) return;
+    const rec = new Recorder(renderCanvasRef.current, 60);
+    recorderRef.current = rec;
+    rec.start();
+    setRecordingActive(true);
+  };
+
+  const stopRecording = () => {
+    if (recorderRef.current) {
+      recorderRef.current.stop();
+      recorderRef.current = null;
+      setRecordingActive(false);
+    }
+  };
+
+  // Mouse move event for HUD visibility auto-hide
+  useEffect(() => {
+    let timeoutId;
+    const handleMouseMove = () => {
+      setHudVisible(true);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setHudVisible(false);
+      }, 4000);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    handleMouseMove();
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  // Fetch session local IP / roomCode and generate QR code
+  useEffect(() => {
+    fetch('/api/session')
+      .then(res => res.json())
+      .then(data => {
+        const targetUrl = data.remoteUrl || `${window.location.origin}/remote?code=${roomCode}`;
+        QRCode.toDataURL(targetUrl, { width: 200, margin: 2 })
+          .then(url => setQrCodeUrl(url))
+          .catch(err => console.error('[Display] QR code gen error:', err));
+      })
+      .catch(err => {
+        console.error('[Display] Failed to fetch session info:', err);
+        const fallbackUrl = `${window.location.origin}/remote?code=${roomCode}`;
+        QRCode.toDataURL(fallbackUrl, { width: 200, margin: 2 })
+          .then(url => setQrCodeUrl(url))
+          .catch(e => console.error(e));
+      });
+  }, [roomCode]);
 
   // Hook 1: Socket.IO & Video Ingestion (runs once on roomCode mount)
   useEffect(() => {
@@ -118,17 +218,53 @@ function Display() {
       console.log('[Display] room_state updated:', state);
     });
 
-    socket.on('preset_change', (d) => console.log('[Display] preset_change:', d));
-    socket.on('slider_update', (d) => console.log('[Display] slider_update:', d));
-    socket.on('engine_switch', (d) => {
-      setEngineMode(d.mode ?? 'shader');
+    socket.on('preset_change', (d) => {
+      console.log('[Display] preset_change:', d);
+      if (d.presetId) {
+        applyPresetById(d.presetId, false);
+      }
     });
+
+    socket.on('slider_update', (d) => {
+      console.log('[Display] slider_update:', d);
+      if (d.param && d.value !== undefined) {
+        const val = parseFloat(d.value);
+        switch (d.param) {
+          case 'edgeSensitivity': setEdgeSensitivity(val); break;
+          case 'colorSteps': setColorSteps(val); break;
+          case 'decay': setDecay(val); break;
+          case 'dispersion': setDispersion(val); break;
+          case 'glowRadius': setGlowRadius(val); break;
+          case 'hue': setHue(val); break;
+          case 'toonOutlineMode': setToonOutlineMode(val); break;
+          case 'audioHueSensitivity': setAudioHueSensitivity(val); break;
+          case 'audioDispersionSensitivity': setAudioDispersionSensitivity(val); break;
+          case 'motionFlowScale': setMotionFlowScale(val); break;
+          default: break;
+        }
+      }
+    });
+
+    socket.on('engine_switch', (d) => {
+      console.log('[Display] engine_switch:', d);
+      if (d.mode) {
+        routerRef.current?.switchTo(d.mode);
+        setEngineMode(d.mode);
+      }
+    });
+
     socket.on('prompt_update', (d) => console.log('[Display] prompt_update:', d));
-    socket.on('audio_source_change', (d) => console.log('[Display] audio_source:', d));
+    socket.on('audio_source_change', (d) => {
+      console.log('[Display] audio_source:', d);
+      if (d.deviceId) {
+        setSelectedAudioDevice(d.deviceId);
+      }
+    });
+
     socket.on('fps_cap_change', (d) => {
       console.log('[Display] fps_cap:', d);
-      if (engineRef.current && d.fps) {
-        engineRef.current.setFpsCap(d.fps);
+      if (d.fps) {
+        routerRef.current?.setFpsCap(d.fps);
       }
     });
 
@@ -181,13 +317,31 @@ function Display() {
     );
     engineRef.current = engine;
     
-    if (cameraStatus === 'live' && engineMode === 'shader') {
-      engine.resume();
+    const diffEngine = new DiffusionEngine();
+    diffusionEngineRef.current = diffEngine;
+
+    const router = new EngineRouter(engine, diffEngine, (newMode) => {
+      setEngineMode(newMode);
+    });
+    routerRef.current = router;
+
+    if (cameraStatus === 'live') {
+      router.resume();
+      router.switchTo(engineMode);
     } else {
-      engine.pause();
+      router.pause();
     }
 
     return () => {
+      if (routerRef.current) {
+        console.log('[Display] Cleaning up EngineRouter');
+        routerRef.current.destroy();
+        routerRef.current = null;
+      }
+      if (diffusionEngineRef.current) {
+        diffusionEngineRef.current.destroy();
+        diffusionEngineRef.current = null;
+      }
       if (engineRef.current) {
         console.log('[Display] Cleaning up ShaderEngine context');
         engineRef.current.destroy();
@@ -242,11 +396,12 @@ function Display() {
   }, [hue]);
 
   useEffect(() => {
-    if (engineRef.current) {
-      if (engineMode === 'shader' && cameraStatus === 'live') {
-        engineRef.current.resume();
+    if (routerRef.current) {
+      if (cameraStatus === 'live') {
+        routerRef.current.resume();
+        routerRef.current.switchTo(engineMode);
       } else {
-        engineRef.current.pause();
+        routerRef.current.pause();
       }
     }
   }, [engineMode, cameraStatus]);
@@ -262,8 +417,8 @@ function Display() {
 
     const tick = (timestamp) => {
       analyzer.tick();
-      if (engineRef.current) {
-        engineRef.current.setAudioData(
+      if (routerRef.current) {
+        routerRef.current.setAudioData(
           analyzer.getBassEnergy(),
           analyzer.getMidEnergy(),
           analyzer.getHighEnergy()
@@ -320,14 +475,14 @@ function Display() {
 
       let animId = null;
       const poseLoop = (timestamp) => {
-        if (poseTrackerRef.current?.isInitialized && hiddenVideoRef.current && engineRef.current) {
+        if (poseTrackerRef.current?.isInitialized && hiddenVideoRef.current && routerRef.current) {
           const t0 = performance.now();
           const landmarks = poseTrackerRef.current.detectFrame(hiddenVideoRef.current, timestamp);
           const elapsed = performance.now() - t0;
           if (elapsed > 8) {
             console.warn(`[PoseTracker] detectFrame took ${elapsed.toFixed(1)}ms (budget: 8ms)`);
           }
-          engineRef.current.setLandmarks(landmarks);
+          routerRef.current.setLandmarks(landmarks);
         }
         animId = requestAnimationFrame(poseLoop);
       };
@@ -337,10 +492,10 @@ function Display() {
         if (animId) cancelAnimationFrame(animId);
         tracker.destroy();
         poseTrackerRef.current = null;
-        if (engineRef.current) engineRef.current.setLandmarks(null);
+        if (routerRef.current) routerRef.current.setLandmarks(null);
       };
     } else {
-      if (engineRef.current) engineRef.current.setLandmarks(null);
+      if (routerRef.current) routerRef.current.setLandmarks(null);
     }
   }, [poseTrackingEnabled]);
 
@@ -353,8 +508,8 @@ function Display() {
       if (hiddenVideoRef.current) hiddenVideoRef.current.srcObject = null;
       setActiveStream(null);
       ingestionRef.current.stopLocalStream();
-      if (engineRef.current) {
-        engineRef.current.pause();
+      if (routerRef.current) {
+        routerRef.current.pause();
       }
     } else if (deviceId) {
       setCameraStatus('loading');
@@ -516,6 +671,39 @@ function Display() {
               </div>
             )}
           </Card>
+
+          {/* Canvas Recording Card */}
+          <Card className="bg-zinc-950/80 border border-zinc-800 p-4 rounded-2xl flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-zinc-300 font-bold text-xs uppercase tracking-wider">
+              <Camera className="size-4 text-zinc-400" />
+              Canvas Recorder
+              {recordingActive && <span className="ml-auto text-[8px] bg-danger/20 text-danger px-1.5 py-0.5 rounded animate-pulse font-semibold">REC</span>}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {!recordingActive ? (
+                <Button
+                  size="sm"
+                  color="primary"
+                  className="rounded-xl font-bold"
+                  onPress={startRecording}
+                  disabled={cameraStatus !== 'live'}
+                >
+                  🔴 Start Recording
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  color="danger"
+                  className="rounded-xl font-bold"
+                  onPress={stopRecording}
+                >
+                  ⬛ Stop & Save Video
+                </Button>
+              )}
+              <p className="text-[9px] text-zinc-500 text-center">Downloads standard high-quality WebM video</p>
+            </div>
+          </Card>
         </div>
       )}
 
@@ -539,6 +727,29 @@ function Display() {
           </Button>
         </div>
 
+        {/* HUD Overlay */}
+        {hudVisible && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 bg-zinc-900/85 border border-zinc-800 text-zinc-200 backdrop-blur-md rounded-2xl px-5 py-2 font-mono text-xs shadow-2xl transition-all duration-300">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+              <span className="font-extrabold uppercase text-zinc-100">{PRESET_MAP[activePresetId]?.name || 'Custom'}</span>
+            </div>
+            <div className="h-4 w-[1px] bg-zinc-800" />
+            <div>
+              <span>MODE: </span>
+              <span className="font-bold text-primary uppercase">{engineMode}</span>
+            </div>
+            <div className="h-4 w-[1px] bg-zinc-800" />
+            <div>
+              <span>{fps} FPS</span>
+            </div>
+            <div className="h-4 w-[1px] bg-zinc-800" />
+            <div>
+              <span>AUDIO: {audioActive ? 'ON' : 'OFF'}</span>
+            </div>
+          </div>
+        )}
+
         {/* Waiting placeholder */}
         {cameraStatus === 'waiting' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-zinc-950/95 z-5 text-center p-6">
@@ -546,9 +757,17 @@ function Display() {
             <p className="text-sm text-zinc-400">
               Waiting for camera feed stream...
             </p>
-            <div className="text-xs text-zinc-500 max-w-sm">
-              Open the <strong className="text-zinc-200">Remote Control</strong> page on a smartphone or client device and join using code:
-              <span className="block font-mono text-2xl text-primary font-bold tracking-widest mt-2">{roomCode}</span>
+            <div className="text-xs text-zinc-500 max-w-sm flex flex-col items-center gap-3">
+              <span>Open the <strong className="text-zinc-200">Remote Control</strong> page on a smartphone or client device:</span>
+              {qrCodeUrl ? (
+                <div className="bg-white p-2 rounded-xl shadow-lg">
+                  <img src={qrCodeUrl} alt="Session Join QR Code" className="w-40 h-40" />
+                </div>
+              ) : (
+                <Spinner size="sm" />
+              )}
+              <span className="text-[10px] text-zinc-600">Scan QR or join manually using code:</span>
+              <span className="block font-mono text-2xl text-primary font-bold tracking-widest">{roomCode}</span>
             </div>
           </div>
         )}
@@ -619,34 +838,20 @@ function Display() {
               Visual Projection
             </div>
             
-            <div className="flex flex-col gap-2">
-              <Button
-                size="sm"
-                variant={activeShader === 'passthrough' ? 'solid' : 'flat'}
-                color={activeShader === 'passthrough' ? 'primary' : 'default'}
-                className="w-full justify-start rounded-xl font-bold"
-                onPress={() => setActiveShader('passthrough')}
-              >
-                📹 Raw Feed (Passthrough)
-              </Button>
-              <Button
-                size="sm"
-                variant={activeShader === 'toon' ? 'solid' : 'flat'}
-                color={activeShader === 'toon' ? 'primary' : 'default'}
-                className="w-full justify-start rounded-xl font-bold"
-                onPress={() => setActiveShader('toon')}
-              >
-                🎨 Toon Render (Cel-Shaded)
-              </Button>
-              <Button
-                size="sm"
-                variant={activeShader === 'neon' ? 'solid' : 'flat'}
-                color={activeShader === 'neon' ? 'primary' : 'default'}
-                className="w-full justify-start rounded-xl font-bold"
-                onPress={() => setActiveShader('neon')}
-              >
-                ⚡ Neon Aura (Skeletal Glow)
-              </Button>
+            <div className="grid grid-cols-2 gap-2">
+              {PRESETS.map((preset) => (
+                <Button
+                  key={preset.id}
+                  size="sm"
+                  variant={activePresetId === preset.id ? 'solid' : 'flat'}
+                  color={activePresetId === preset.id ? 'primary' : 'default'}
+                  className="rounded-xl font-bold flex flex-col items-center justify-center p-2 h-16 text-center min-w-0"
+                  onPress={() => applyPresetById(preset.id)}
+                >
+                  <span className="text-lg mb-0.5">{preset.icon}</span>
+                  <span className="text-[9px] truncate max-w-full tracking-tight">{preset.name}</span>
+                </Button>
+              ))}
             </div>
 
             <div className="flex items-center justify-between py-1 border-t border-zinc-800 mt-2">

@@ -25,6 +25,7 @@
     "lucide-react": "^0.468.0",
     "peer": "^1.0.2",
     "peerjs": "^1.5.4",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-aria": "^3.51.0",
     "react-aria-components": "^1.20.0",
