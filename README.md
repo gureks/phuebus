@@ -101,22 +101,19 @@ phuebus/
 
 | Phase | Status | Description |
 |---|---|---|
-| **Phase 1** | 🟡 Planning | Local shader engine + ingestion + mobile remote |
-| **Phase 2** | ⬜ Not Started | Hybrid AI diffusion engine |
-| **Phase 3** | ⬜ Not Started | Desktop app + SaaS distribution |
+| **Phase 1** | ✅ Complete | Local shader engine + ingestion + mobile remote |
+| **Phase 2** | ✅ Complete | Hybrid AI diffusion engine |
+| **Phase 3** | ✅ Complete | Desktop app + SaaS distribution |
 
 ---
 
 ## Local Development Setup
 
-> ⚠️ Code scaffold not yet started. See [docs/plan/PHASE1.md](docs/plan/PHASE1.md) — begin with Prompt 1.
-
 ```bash
-# Once src/ is populated:
 cd src
 npm install
-npm start
-# Open http://localhost:3000
+npm run start
+# Open https://localhost:3005
 ```
 
 ### Hardware Requirements (Phase 1)

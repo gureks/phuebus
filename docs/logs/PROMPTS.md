@@ -403,3 +403,24 @@
 - 47/47 passing tests under Vitest.
 - Verified compilation builds split vision WASM bundles, and frontend SPA builds compile cleanly.
 - Ready for manual verification of all phases (P1-5 onwards).
+
+---
+
+## P-012 — EADDRINUSE Port 3000 Debugging
+- **Date:** 2026-08-07 17:05 (IST)
+- **Phase:** Debugging / Verification
+- **Type:** Fix
+
+### Prompt (verbatim)
+> @[TerminalName: zsh, ProcessId: 17187]
+> (Address already in use 0.0.0.0:3000 error)
+
+### Decisions Triggered
+- None
+
+### Outputs Produced
+- None
+
+### Notes
+- Troubleshooting process starting port 3000.
+
