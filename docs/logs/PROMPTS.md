@@ -419,8 +419,13 @@
 - None
 
 ### Outputs Produced
-- None
+- [src/.env](file:///Users/gureks/Desktop/dev/phuebus/src/.env) (modified)
+- [src/vite.config.js](file:///Users/gureks/Desktop/dev/phuebus/src/vite.config.js) (modified)
+- [README.md](file:///Users/gureks/Desktop/dev/phuebus/README.md) (modified)
+- [docs/logs/PROMPTS.md](file:///Users/gureks/Desktop/dev/phuebus/docs/logs/PROMPTS.md) (modified)
 
 ### Notes
-- Troubleshooting process starting port 3000.
+- Identified that port 3000 was occupied by Grafana docker container `til-grafana`.
+- Moved Phuebus server application port to 3005 and updated Vite reverse proxy targets to match.
+- Verified all 47 tests passed and server started up cleanly on port 3005.
 
